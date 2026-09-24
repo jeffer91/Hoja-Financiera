@@ -78,6 +78,7 @@ function bind() {
   $('teacherTitle').addEventListener('change', rememberTitle);
   $('saveDraftBtn').addEventListener('click', () => saveDraft(true));
   $('printBtn').addEventListener('click', () => { if (validateForm()) window.print(); });
+  $('submitAdminBtn').addEventListener('click', submitToAdmin);
   $('clearBtn').addEventListener('click', clearForm);
 }
 
