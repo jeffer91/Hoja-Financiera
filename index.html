@@ -18,7 +18,10 @@
         <span>Clases de refuerzo por carrera</span>
       </div>
     </div>
-    <div class="topbar-status" id="firebaseStatus" aria-live="polite">Firebase listo</div>
+    <div class="topbar-actions">
+      <a class="topbar-link" href="administrador/">Administrador</a>
+      <div class="topbar-status" id="firebaseStatus" aria-live="polite">Firebase listo</div>
+    </div>
   </header>
 
   <main class="app-layout">
@@ -107,10 +110,15 @@
           <div><span>Valor estimado</span><strong id="moneyTotal">$0.00</strong></div>
         </section>
 
+        <div class="submission-note" id="submissionNote">
+          <strong>Envío administrativo</strong>
+          <span>Cuando la hoja esté completa, envíala para que pueda ser revisada desde el panel de administrador.</span>
+        </div>
         <div class="actions">
           <button type="button" class="btn btn-ghost" id="saveDraftBtn">Guardar borrador</button>
           <button type="button" class="btn btn-secondary" id="printBtn">Imprimir</button>
-          <button type="submit" class="btn btn-primary" id="pdfBtn">Descargar PDF</button>
+          <button type="submit" class="btn btn-secondary" id="pdfBtn">Descargar PDF</button>
+          <button type="button" class="btn btn-primary" id="submitAdminBtn">Enviar al administrador</button>
         </div>
       </form>
     </section>
