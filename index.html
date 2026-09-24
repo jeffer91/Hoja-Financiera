@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d2f56" />
+  <meta name="description" content="Generador institucional de hojas financieras para clases de refuerzo por carrera." />
+  <title>Hoja Financiera | ITSQMET</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo-itsqmet.jpg" alt="Logo ITSQMET" />
+      <div>
+        <strong>Hoja Financiera</strong>
+        <span>Clases de refuerzo por carrera</span>
+      </div>
+    </div>
+    <div class="topbar-status" id="firebaseStatus" aria-live="polite">Firebase listo</div>
+  </header>
+
+  <main class="app-layout">
+    <section class="panel form-panel" aria-label="Formulario de hoja financiera">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Formulario</p>
+          <h1>Nueva hoja financiera</h1>
+        </div>
+        <button class="btn btn-ghost" type="button" id="clearBtn">Limpiar</button>
+      </div>
+
+      <form id="financeForm" novalidate>
+        <section class="form-section">
+          <div class="section-title">
+            <span class="step">1</span>
+            <div><h2>Período lectivo</h2><p>Selecciona el inicio y fin del período.</p></div>
+          </div>
+          <div class="period-grid">
+            <label>Mes inicio
+              <select id="startMonth" required></select>
+            </label>
+            <label>Año inicio
+              <input id="startYear" type="number" min="2020" max="2100" step="1" required />
+            </label>
+            <label>Mes fin
+              <select id="endMonth" required></select>
+            </label>
+            <label>Año fin
+              <input id="endYear" type="number" min="2020" max="2100" step="1" required />
+            </label>
+          </div>
+          <p class="field-error" id="periodError"></p>
+        </section>
+
+        <section class="form-section">
+          <div class="section-title">
+            <span class="step">2</span>
+            <div><h2>Docente</h2><p>Escribe la cédula para buscar el nombre en Firebase.</p></div>
+          </div>
+          <div class="teacher-grid">
+            <label>Cédula
+              <div class="input-action">
+                <input id="cedula" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Ej. 1713315131" required />
+                <button type="button" class="btn btn-secondary" id="lookupBtn">Buscar</button>
+              </div>
+              <small id="lookupMessage" class="helper"></small>
+            </label>
+            <label>Apellidos y nombres
+              <input id="teacherName" placeholder="Se completa automáticamente" required readonly />
+            </label>
+            <label>Título superior
+              <input id="teacherTitle" placeholder="Ej. Magíster en Sistemas Informáticos" required />
+            </label>
+            <label>Carrera detectada <span class="optional">opcional</span>
+              <input id="teacherCareer" placeholder="Se completa si Firebase dispone del dato" readonly />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section fixed-concept">
+          <div class="section-title compact-title">
+            <span class="step">3</span>
+            <div><h2>Actividad</h2><p>El concepto institucional se mantiene fijo.</p></div>
+          </div>
+          <div class="fixed-value">
+            <span>Concepto</span>
+            <strong>Clases de refuerzo por carrera</strong>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-title activities-title">
+            <div class="title-with-step">
+              <span class="step">4</span>
+              <div><h2>Clases realizadas</h2><p>Agrega una fila por cada fecha trabajada.</p></div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="addActivityBtn">+ Agregar clase</button>
+          </div>
+          <div id="activities" class="activities"></div>
+        </section>
+
+        <section class="summary-card">
+          <div><span>Total de clases</span><strong id="classCount">0</strong></div>
+          <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
+          <div><span>Valor estimado</span><strong id="moneyTotal">$0.00</strong></div>
+        </section>
+
+        <div class="actions">
+          <button type="button" class="btn btn-ghost" id="saveDraftBtn">Guardar borrador</button>
+          <button type="button" class="btn btn-secondary" id="printBtn">Imprimir</button>
+          <button type="submit" class="btn btn-primary" id="pdfBtn">Descargar PDF</button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="preview-panel" aria-label="Vista previa">
+      <div class="preview-heading">
+        <div>
+          <p class="eyebrow">Vista previa</p>
+          <h2>Documento final</h2>
+        </div>
+        <span class="live-pill">En vivo</span>
+      </div>
+      <div class="preview-viewport">
+        <div id="pdfContent" class="pdf-content">
+          <section class="pdf-page financial-page" id="financialPage">
+            <div class="doc-logo-wrap"><img src="assets/logo-itsqmet.jpg" alt="ITSQMET" class="doc-logo" /></div>
+            <div class="institution-heading">
+              <strong>INSTITUTO TECNOLÓGICO SUPERIOR QUITO METROPOLITANO</strong>
+              <span>QUITO - ECUADOR</span>
+              <strong>REGISTRO DE PAGO DE HABERES DEL PERSONAL DIRECTIVO Y DOCENTE</strong>
+            </div>
+
+            <table class="info-table">
+              <tr><th>PERÍODO LECTIVO:</th><td id="pvPeriod">—</td></tr>
+              <tr><th>APELLIDOS Y NOMBRES:</th><td id="pvName">—</td></tr>
+              <tr><th>CÉDULA:</th><td id="pvCedula">—</td></tr>
+              <tr><th>TÍTULO SUPERIOR:</th><td id="pvTitle">—</td></tr>
+              <tr class="material-row"><th>MATERIAS:</th><td>CLASES DE REFUERZO POR CARRERA</td></tr>
+            </table>
+
+            <table class="activities-table">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="col-num">No.</th>
+                  <th rowspan="2" class="col-concept">CONCEPTO</th>
+                  <th colspan="2" class="col-date">FECHA</th>
+                  <th rowspan="2" class="col-value">VALOR HORA</th>
+                  <th rowspan="2" class="col-hours">TOTAL HORAS<br>EFECTIVAMENTE<br>LABORADAS</th>
+                  <th rowspan="2">OBSERVACIONES</th>
+                </tr>
+                <tr><th>MES</th><th>DÍA</th></tr>
+              </thead>
+              <tbody id="pvActivities"></tbody>
+              <tfoot>
+                <tr><th colspan="5">TOTAL</th><th id="pvHoursTotal">0</th><td></td></tr>
+              </tfoot>
+            </table>
+
+            <div class="signatures">
+              <div class="signature-row"><span>FIRMA DOCENTE:</span><div class="signature-line"></div></div>
+              <div class="signature-row"><span>COORDINADOR DE TITULACIÓN:</span><div class="signature-line"></div></div>
+              <div class="signature-row"><span>VICERRECTORADO:</span><div class="signature-line wide"></div></div>
+            </div>
+          </section>
+
+          <section class="pdf-page evidence-page" id="evidencePage" hidden>
+            <div class="evidence-header">
+              <img src="assets/logo-itsqmet.jpg" alt="ITSQMET" />
+              <div><strong>RESPALDO DE CLASES DE REFUERZO</strong><span>Hoja financiera — evidencias</span></div>
+            </div>
+            <table class="evidence-table">
+              <tbody>
+                <tr><th>Docente:</th><td id="evName">—</td></tr>
+                <tr><th>Carrera:</th><td id="evCareer">—</td></tr>
+                <tr><th>Período:</th><td id="evPeriod">—</td></tr>
+              </tbody>
+            </table>
+            <div id="evidenceList" class="evidence-list"></div>
+          </section>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <template id="activityTemplate">
+    <article class="activity-card">
+      <div class="activity-card-head">
+        <strong>Clase <span class="activity-number">1</span></strong>
+        <button type="button" class="icon-btn remove-activity" aria-label="Eliminar clase">×</button>
+      </div>
+      <div class="activity-fields">
+        <label>Fecha
+          <input class="activity-date" type="date" required />
+        </label>
+        <label>Valor hora ($)
+          <input class="activity-value" type="number" min="0" step="0.01" placeholder="0.00" required />
+        </label>
+        <label>Horas trabajadas
+          <input class="activity-hours" type="number" min="0.25" step="0.25" value="2" required />
+        </label>
+        <label class="full-width">Observaciones
+          <textarea class="activity-notes" rows="2" placeholder="Ej. Revisión de introducción, metodología y correcciones del artículo académico." required></textarea>
+        </label>
+        <label class="full-width">Enlace de grabación o evidencia <span class="optional">opcional</span>
+          <input class="activity-evidence" type="url" placeholder="https://..." />
+        </label>
+      </div>
+    </article>
+  </template>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
