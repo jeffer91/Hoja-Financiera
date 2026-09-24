@@ -174,3 +174,17 @@ body.pdf-export .pdf-page { box-shadow: none !important; margin: 0 !important; }
   .pdf-page { width: 210mm; min-height: 297mm; margin: 0; box-shadow: none; break-after: page; }
   .pdf-page[hidden] { display: none !important; }
 }
+
+
+.topbar-actions { display:flex; align-items:center; gap:10px; }
+.topbar-link { color:#fff; text-decoration:none; font-size:12px; font-weight:800; padding:7px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08); }
+.topbar-link:hover { background:rgba(255,255,255,.16); }
+.submission-note { display:flex; flex-direction:column; gap:3px; margin:0 0 12px; padding:11px 13px; border:1px solid #cfe0f3; background:#f5f9fe; border-radius:10px; }
+.submission-note strong { color:var(--navy); font-size:12px; }
+.submission-note span { color:var(--muted); font-size:11px; line-height:1.4; }
+.btn[disabled] { opacity:.55; cursor:not-allowed; transform:none !important; }
+
+@media (max-width:700px) {
+  .topbar-actions .topbar-status { display:none; }
+  .topbar-link { font-size:11px; padding:6px 8px; }
+}
