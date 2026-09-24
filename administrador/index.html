@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d2f56" />
+  <title>Administrador | Hoja Financiera</title>
+  <link rel="stylesheet" href="admin.css" />
+  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../">
+      <img src="../assets/logo-itsqmet.jpg" alt="ITSQMET" />
+      <div><strong>Hoja Financiera</strong><span>Panel de administrador</span></div>
+    </a>
+    <div class="top-actions">
+      <a class="header-link" href="../">Formulario docente</a>
+      <button class="header-link button-link" id="logoutBtn" hidden>Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="loginView" class="login-wrap">
+      <div class="login-card">
+        <p class="eyebrow">Acceso restringido</p>
+        <h1>Administrador</h1>
+        <p class="intro">Inicia sesión con una cuenta autorizada para revisar las hojas financieras enviadas.</p>
+        <form id="loginForm">
+          <label>Correo electrónico
+            <input id="email" type="email" autocomplete="username" required />
+          </label>
+          <label>Contraseña
+            <input id="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button class="btn primary" type="submit" id="loginBtn">Ingresar</button>
+        </form>
+        <p class="login-message" id="loginMessage"></p>
+        <div class="setup-note">
+          <strong>Seguridad</strong>
+          <span>El usuario debe existir en Firebase Authentication y su UID debe estar autorizado en <code>administradores/{uid}</code>.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="dashboard" hidden>
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Control administrativo</p>
+          <h1>Hojas financieras</h1>
+          <p id="adminIdentity" class="muted"></p>
+        </div>
+        <div class="heading-actions">
+          <button class="btn secondary" id="refreshBtn">Actualizar</button>
+          <button class="btn primary" id="exportBtn">Exportar Excel</button>
+        </div>
+      </div>
+
+      <section class="stats" aria-label="Resumen">
+        <article><span>Recibidas</span><strong id="statTotal">0</strong></article>
+        <article><span>Pendientes</span><strong id="statPending">0</strong></article>
+        <article><span>Aprobadas</span><strong id="statApproved">0</strong></article>
+        <article><span>Observadas</span><strong id="statObserved">0</strong></article>
+        <article><span>Horas</span><strong id="statHours">0</strong></article>
+        <article><span>Valor estimado</span><strong id="statMoney">$0.00</strong></article>
+      </section>
+
+      <section class="filters-card">
+        <div class="filters">
+          <label>Buscar
+            <input id="searchFilter" type="search" placeholder="Docente o cédula" />
+          </label>
+          <label>Estado
+            <select id="statusFilter">
+              <option value="">Todos</option>
+              <option>Enviada</option>
+              <option>Revisada</option>
+              <option>Aprobada</option>
+              <option>Observada</option>
+            </select>
+          </label>
+          <label>Período
+            <select id="periodFilter"><option value="">Todos</option></select>
+          </label>
+          <label>Carrera
+            <select id="careerFilter"><option value="">Todas</option></select>
+          </label>
+        </div>
+      </section>
+
+      <section class="table-card">
+        <div class="table-meta">
+          <strong id="resultCount">0 registros</strong>
+          <span id="syncStatus">Esperando datos…</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Docente</th>
+                <th>Cédula</th>
+                <th>Período</th>
+                <th>Carrera</th>
+                <th>Clases</th>
+                <th>Horas</th>
+                <th>Total</th>
+                <th>Enviado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="sheetRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="empty" hidden>No hay hojas que coincidan con los filtros.</div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="sheetDialog">
+    <form method="dialog" class="dialog-shell" id="sheetForm">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Revisión</p>
+          <h2 id="dialogTitle">Hoja financiera</h2>
+          <p id="dialogCode" class="muted small"></p>
+        </div>
+        <button class="close-btn" value="cancel" aria-label="Cerrar">×</button>
+      </div>
+
+      <div class="dialog-grid">
+        <label>Docente
+          <input id="editTeacher" readonly />
+        </label>
+        <label>Cédula
+          <input id="editCedula" readonly />
+        </label>
+        <label>Título superior
+          <input id="editTitle" />
+        </label>
+        <label>Carrera
+          <input id="editCareer" />
+        </label>
+        <label>Período
+          <input id="editPeriod" readonly />
+        </label>
+        <label>Estado
+          <select id="editStatus">
+            <option>Enviada</option>
+            <option>Revisada</option>
+            <option>Aprobada</option>
+            <option>Observada</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="section-head">
+        <h3>Clases registradas</h3>
+        <span id="dialogTotals" class="muted"></span>
+      </div>
+      <div id="editActivities" class="edit-activities"></div>
+
+      <label class="admin-note">Observación administrativa
+        <textarea id="editObservation" rows="3" placeholder="Escribe aquí una observación para seguimiento."></textarea>
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="printSheetBtn">Imprimir / PDF</button>
+        <button type="button" class="btn warning" id="markObservedBtn">Observar</button>
+        <button type="button" class="btn secondary" id="markReviewedBtn">Marcar revisada</button>
+        <button type="button" class="btn success" id="approveBtn">Aprobar</button>
+        <button type="button" class="btn primary" id="saveSheetBtn">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="editActivityTemplate">
+    <article class="activity-edit-card">
+      <div class="activity-edit-head"><strong>Clase <span class="n"></span></strong></div>
+      <div class="activity-edit-grid">
+        <label>Fecha<input class="date" type="date" /></label>
+        <label>Valor hora<input class="value" type="number" min="0" step="0.01" /></label>
+        <label>Horas<input class="hours" type="number" min="0.25" step="0.25" /></label>
+        <label class="full">Observaciones<textarea class="notes" rows="2"></textarea></label>
+        <label class="full">Evidencia<input class="evidence" type="url" /></label>
+      </div>
+    </article>
+  </template>
+
+  <div class="toast" id="toast"></div>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
