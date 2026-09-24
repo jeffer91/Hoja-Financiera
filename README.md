@@ -18,9 +18,10 @@ Aplicación web para generar hojas financieras institucionales de **Clases de re
 
 El repositorio incluye un workflow para desplegar el sitio estático con GitHub Pages mediante GitHub Actions.
 
-URL:
+- Docentes: `https://jeffer91.github.io/Hoja-Financiera/`
+- Administrador: `https://jeffer91.github.io/Hoja-Financiera/administrador/`
 
-`https://jeffer91.github.io/Hoja-Financiera/`
+El formulario docente puede enviar hojas terminadas a `hojasFinancieras` en Firebase. El panel administrativo permite revisar, filtrar, editar, observar, aprobar, imprimir y exportar a Excel. La configuración segura del acceso está documentada en `FIREBASE-ADMIN.md`.
 
 ## Firebase
 
