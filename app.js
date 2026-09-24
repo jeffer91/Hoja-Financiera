@@ -305,6 +305,82 @@ function fail(message, el) {
   return false;
 }
 
+
+async function submitToAdmin() {
+  if (!validateForm()) return;
+  if (!db) {
+    toast('Firebase no está disponible. No se pudo enviar la hoja.');
+    return;
+  }
+
+  const rows = activities();
+  const totalHours = rows.reduce((sum, item) => sum + item.hours, 0);
+  const totalValue = rows.reduce((sum, item) => sum + item.hours * item.valueHour, 0);
+  const payload = {
+    version: 1,
+    concepto: CONCEPT,
+    estado: 'Enviada',
+    observacionAdmin: '',
+    cedula: $('cedula').value.trim(),
+    docente: $('teacherName').value.trim(),
+    tituloSuperior: $('teacherTitle').value.trim(),
+    carrera: $('teacherCareer').value.trim(),
+    periodo: {
+      mesInicio: Number($('startMonth').value),
+      anioInicio: Number($('startYear').value),
+      mesFin: Number($('endMonth').value),
+      anioFin: Number($('endYear').value),
+      etiqueta: periodLabel()
+    },
+    actividades: rows,
+    totales: {
+      clases: rows.length,
+      horas: totalHours,
+      valor: Number(totalValue.toFixed(2))
+    },
+    evidencias: rows.filter(item => item.evidence).length,
+    fechaEnvio: Date.now(),
+    fechaActualizacion: Date.now(),
+    origen: 'Hoja-Financiera'
+  };
+
+  const btn = $('submitAdminBtn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+
+  try {
+    const target = push(ref(db, 'hojasFinancieras'));
+    await set(target, payload);
+    localStorage.setItem('hoja-financiera-last-submission', JSON.stringify({
+      id: target.key,
+      fechaEnvio: payload.fechaEnvio,
+      cedula: payload.cedula
+    }));
+    saveDraft(false);
+    setSubmissionNote('Hoja enviada correctamente', 'Código: ' + target.key + ' · Estado: Enviada.', true);
+    toast('Hoja enviada al administrador.');
+  } catch (error) {
+    console.error(error);
+    setSubmissionNote('No se pudo enviar', 'Firebase rechazó la escritura. Revisa las reglas del nodo hojasFinancieras.', false);
+    toast('No se pudo enviar la hoja a Firebase.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar al administrador';
+  }
+}
+
+function setSubmissionNote(title, detail, ok) {
+  const note = $('submissionNote');
+  note.replaceChildren();
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const span = document.createElement('span');
+  span.textContent = detail;
+  note.append(strong, span);
+  note.style.borderColor = ok ? '#b9dfcc' : '#efc4c0';
+  note.style.background = ok ? '#f0fbf5' : '#fff6f5';
+}
+
 async function downloadPdf() {
   if (!window.html2pdf) {
     toast('No se cargó el generador PDF. Usa Imprimir → Guardar como PDF.');
