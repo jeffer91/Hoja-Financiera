@@ -109,7 +109,7 @@ function renumber() {
 function activities() {
   return [...list.querySelectorAll('.activity-card')].map(card => ({
     date: card.querySelector('.activity-date').value,
-    valueHour: num(card.querySelector('.activity-value').value),
+    valueHour: null,
     hours: num(card.querySelector('.activity-hours').value),
     notes: card.querySelector('.activity-notes').value.trim(),
     evidence: card.querySelector('.activity-evidence').value.trim()
@@ -120,10 +120,8 @@ function updateAll() {
   validatePeriod();
   const rows = activities();
   const hours = rows.reduce((s, r) => s + r.hours, 0);
-  const money = rows.reduce((s, r) => s + r.hours * r.valueHour, 0);
   $('classCount').textContent = rows.length;
   $('hoursTotal').textContent = nfmt(hours);
-  $('moneyTotal').textContent = money.toLocaleString('en-US', {style:'currency', currency:'USD'});
   renderPreview(rows, hours);
 }
 
@@ -291,7 +289,7 @@ function validateForm() {
   const rows = activities();
   if (!rows.length) return fail('Agrega al menos una clase.');
   for (let i = 0; i < rows.length; i++) {
-    if (!rows[i].date || rows[i].valueHour <= 0 || rows[i].hours <= 0 || !rows[i].notes) {
+    if (!rows[i].date || rows[i].hours <= 0 || !rows[i].notes) {
       return fail('Completa todos los datos de la clase ' + (i + 1) + '.');
     }
   }
@@ -317,7 +315,8 @@ async function submitToAdmin() {
   const totalHours = rows.reduce((sum, item) => sum + item.hours, 0);
   const totalValue = rows.reduce((sum, item) => sum + item.hours * item.valueHour, 0);
   const payload = {
-    version: 1,
+    version: 2,
+    valorHoraGestionadoPor: 'Talento Humano',
     concepto: CONCEPT,
     estado: 'Enviada',
     observacionAdmin: '',
