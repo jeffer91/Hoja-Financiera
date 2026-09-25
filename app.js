@@ -19,6 +19,8 @@ const $ = id => document.getElementById(id);
 const form = $('financeForm');
 const list = $('activities');
 const template = $('activityTemplate');
+const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y enviar'];
+let currentWizardPage = 1;
 
 let db = null;
 try {
@@ -34,6 +36,7 @@ setupPeriod();
 bind();
 if (!restoreDraft()) addActivity();
 updateAll();
+goToPage(1, false);
 
 function setupMonths() {
   ['startMonth','endMonth'].forEach(id => {
@@ -80,6 +83,13 @@ function bind() {
   $('printBtn').addEventListener('click', () => { if (validateForm()) window.print(); });
   $('submitAdminBtn').addEventListener('click', submitToAdmin);
   $('clearBtn').addEventListener('click', clearForm);
+
+  document.querySelectorAll('[data-next-page]').forEach(btn => {
+    btn.addEventListener('click', () => goToPage(Number(btn.dataset.nextPage), true));
+  });
+  document.querySelectorAll('[data-prev-page]').forEach(btn => {
+    btn.addEventListener('click', () => goToPage(Number(btn.dataset.prevPage), false));
+  });
 }
 
 function addActivity(data) {
@@ -121,6 +131,7 @@ function updateAll() {
   const hours = rows.reduce((s, r) => s + r.hours, 0);
   $('classCount').textContent = rows.length;
   $('hoursTotal').textContent = nfmt(hours);
+  updateWizardSummary();
   renderPreview(rows, hours);
 }
 
@@ -279,19 +290,87 @@ function validatePeriod() {
   return ok;
 }
 
-function validateForm() {
-  updateAll();
-  if (!validatePeriod()) return fail('Revisa el período lectivo.');
-  if (!/^\d{10}$/.test($('cedula').value.trim())) return fail('Ingresa una cédula válida de 10 dígitos.', $('cedula'));
-  if (!$('teacherName').value.trim()) return fail('Busca o ingresa el nombre del docente.', $('teacherName'));
-  if (!$('teacherTitle').value.trim()) return fail('Ingresa el título superior.', $('teacherTitle'));
-  const rows = activities();
-  if (!rows.length) return fail('Agrega al menos una clase.');
-  for (let i = 0; i < rows.length; i++) {
-    if (!rows[i].date || rows[i].hours <= 0 || !rows[i].notes) {
-      return fail('Completa todos los datos de la clase ' + (i + 1) + '.');
+function goToPage(target, validateForward = true) {
+  target = Number(target);
+  if (!Number.isInteger(target) || target < 1 || target > 3) return;
+  if (validateForward && target > currentWizardPage && !validateWizardPage(currentWizardPage)) return;
+
+  currentWizardPage = target;
+
+  document.querySelectorAll('[data-wizard-page]').forEach(page => {
+    const active = Number(page.dataset.wizardPage) === target;
+    page.hidden = !active;
+    page.classList.toggle('is-active', active);
+  });
+
+  document.querySelectorAll('[data-step-indicator]').forEach(step => {
+    const n = Number(step.dataset.stepIndicator);
+    step.classList.toggle('is-active', n === target);
+    step.classList.toggle('is-complete', n < target);
+  });
+
+  const label = $('wizardPageLabel');
+  const name = $('wizardPageName');
+  if (label) label.textContent = 'Paso ' + target + ' de 3';
+  if (name) name.textContent = WIZARD_PAGE_NAMES[target - 1];
+
+  updateWizardSummary();
+  const panel = document.querySelector('.form-panel');
+  if (panel) panel.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function updateWizardSummary() {
+  const teacher = $('reviewTeacher');
+  if (!teacher) return;
+  teacher.textContent = $('teacherName').value.trim() || '—';
+  $('reviewCedula').textContent = $('cedula').value.trim() || '—';
+  $('reviewPeriod').textContent = periodLabel() || '—';
+  $('reviewCareer').textContent = $('teacherCareer').value.trim() || 'No registrada';
+}
+
+function validateWizardPage(page) {
+  if (page === 1) {
+    if (!validatePeriod()) {
+      if (currentWizardPage !== 1) goToPage(1, false);
+      return fail('Revisa el período lectivo.');
     }
+    if (!/^\d{10}$/.test($('cedula').value.trim())) {
+      if (currentWizardPage !== 1) goToPage(1, false);
+      return fail('Ingresa una cédula válida de 10 dígitos.', $('cedula'));
+    }
+    if (!$('teacherName').value.trim()) {
+      if (currentWizardPage !== 1) goToPage(1, false);
+      return fail('Busca o ingresa el nombre del docente.', $('teacherName'));
+    }
+    if (!$('teacherTitle').value.trim()) {
+      if (currentWizardPage !== 1) goToPage(1, false);
+      return fail('Ingresa el título superior.', $('teacherTitle'));
+    }
+    rememberTitle();
+    return true;
   }
+
+  if (page === 2) {
+    const rows = activities();
+    if (!rows.length) {
+      if (currentWizardPage !== 2) goToPage(2, false);
+      return fail('Agrega al menos una clase.');
+    }
+    for (let i = 0; i < rows.length; i++) {
+      if (!rows[i].date || rows[i].hours <= 0 || !rows[i].notes) {
+        if (currentWizardPage !== 2) goToPage(2, false);
+        return fail('Completa todos los datos de la clase ' + (i + 1) + '.');
+      }
+    }
+    return true;
+  }
+
+  return true;
+}
+
+function validateForm() {
+  if (!validateWizardPage(1)) return false;
+  if (!validateWizardPage(2)) return false;
   rememberTitle();
   return true;
 }
@@ -446,6 +525,7 @@ function clearForm() {
   list.replaceChildren();
   addActivity();
   updateAll();
+  goToPage(1, false);
   toast('Formulario limpio.');
 }
 
