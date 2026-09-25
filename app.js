@@ -87,7 +87,6 @@ function addActivity(data) {
   const frag = template.content.cloneNode(true);
   const card = frag.querySelector('.activity-card');
   card.querySelector('.activity-date').value = data.date || today();
-  card.querySelector('.activity-value').value = data.valueHour == null ? '' : data.valueHour;
   card.querySelector('.activity-hours').value = data.hours == null ? 2 : data.hours;
   card.querySelector('.activity-notes').value = data.notes || '';
   card.querySelector('.activity-evidence').value = data.evidence || '';
