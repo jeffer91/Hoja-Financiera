@@ -106,7 +106,6 @@
         <section class="summary-card">
           <div><span>Total de clases</span><strong id="classCount">0</strong></div>
           <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
-          <div><span>Valor estimado</span><strong id="moneyTotal">$0.00</strong></div>
         </section>
 
         <div class="submission-note" id="submissionNote">
@@ -146,7 +145,7 @@
                   <th rowspan="2" class="col-num">No.</th>
                   <th rowspan="2" class="col-concept">CONCEPTO</th>
                   <th colspan="2" class="col-date">FECHA</th>
-                  <th rowspan="2" class="col-value">VALOR HORA</th>
+                  <th rowspan="2" class="col-value">VALOR HORA<br><small>TALENTO HUMANO</small></th>
                   <th rowspan="2" class="col-hours">TOTAL HORAS<br>EFECTIVAMENTE<br>LABORADAS</th>
                   <th rowspan="2">OBSERVACIONES</th>
                 </tr>
@@ -192,9 +191,6 @@
       <div class="activity-fields">
         <label>Fecha
           <input class="activity-date" type="date" required />
-        </label>
-        <label>Valor hora ($)
-          <input class="activity-value" type="number" min="0" step="0.01" placeholder="0.00" required />
         </label>
         <label>Horas trabajadas
           <input class="activity-hours" type="number" min="0.25" step="0.25" value="2" required />
