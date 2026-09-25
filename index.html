@@ -34,90 +34,137 @@
       </div>
 
       <form id="financeForm" novalidate>
-        <section class="form-section">
-          <div class="section-title">
-            <span class="step">1</span>
-            <div><h2>Período lectivo</h2><p>Selecciona el inicio y fin del período.</p></div>
+        <nav class="wizard-progress" aria-label="Progreso del formulario">
+          <div class="wizard-progress-head">
+            <strong id="wizardPageLabel">Paso 1 de 3</strong>
+            <span id="wizardPageName">Datos del docente</span>
           </div>
-          <div class="period-grid">
-            <label>Mes inicio
-              <select id="startMonth" required></select>
-            </label>
-            <label>Año inicio
-              <input id="startYear" type="number" min="2020" max="2100" step="1" required />
-            </label>
-            <label>Mes fin
-              <select id="endMonth" required></select>
-            </label>
-            <label>Año fin
-              <input id="endYear" type="number" min="2020" max="2100" step="1" required />
-            </label>
+          <div class="wizard-steps" aria-hidden="true">
+            <span class="wizard-step is-active" data-step-indicator="1"><b>1</b><small>Datos</small></span>
+            <span class="wizard-line"></span>
+            <span class="wizard-step" data-step-indicator="2"><b>2</b><small>Clases</small></span>
+            <span class="wizard-line"></span>
+            <span class="wizard-step" data-step-indicator="3"><b>3</b><small>Enviar</small></span>
           </div>
-          <p class="field-error" id="periodError"></p>
-        </section>
+        </nav>
 
-        <section class="form-section">
-          <div class="section-title">
-            <span class="step">2</span>
-            <div><h2>Docente</h2><p>Escribe la cédula para buscar el nombre en Firebase.</p></div>
-          </div>
-          <div class="teacher-grid">
-            <label>Cédula
-              <div class="input-action">
-                <input id="cedula" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Ej. 1713315131" required />
-                <button type="button" class="btn btn-secondary" id="lookupBtn">Buscar</button>
-              </div>
-              <small id="lookupMessage" class="helper"></small>
-            </label>
-            <label>Apellidos y nombres
-              <input id="teacherName" placeholder="Se completa automáticamente" required readonly />
-            </label>
-            <label>Título superior
-              <input id="teacherTitle" placeholder="Ej. Magíster en Sistemas Informáticos" required />
-            </label>
-            <label>Carrera detectada <span class="optional">opcional</span>
-              <input id="teacherCareer" placeholder="Se completa si Firebase dispone del dato" readonly />
-            </label>
-          </div>
-        </section>
-
-        <section class="form-section fixed-concept">
-          <div class="section-title compact-title">
-            <span class="step">3</span>
-            <div><h2>Actividad</h2><p>El concepto institucional se mantiene fijo.</p></div>
-          </div>
-          <div class="fixed-value">
-            <span>Concepto</span>
-            <strong>Clases de refuerzo por carrera</strong>
-          </div>
-        </section>
-
-        <section class="form-section">
-          <div class="section-title activities-title">
-            <div class="title-with-step">
-              <span class="step">4</span>
-              <div><h2>Clases realizadas</h2><p>Agrega una fila por cada fecha trabajada.</p></div>
+        <section class="wizard-page is-active" data-wizard-page="1">
+          <section class="form-section first-section">
+            <div class="section-title">
+              <span class="step">1</span>
+              <div><h2>Período lectivo</h2><p>Selecciona el inicio y fin del período.</p></div>
             </div>
-            <button type="button" class="btn btn-secondary" id="addActivityBtn">+ Agregar clase</button>
+            <div class="period-grid">
+              <label>Mes inicio
+                <select id="startMonth" required></select>
+              </label>
+              <label>Año inicio
+                <input id="startYear" type="number" min="2020" max="2100" step="1" required />
+              </label>
+              <label>Mes fin
+                <select id="endMonth" required></select>
+              </label>
+              <label>Año fin
+                <input id="endYear" type="number" min="2020" max="2100" step="1" required />
+              </label>
+            </div>
+            <p class="field-error" id="periodError"></p>
+          </section>
+
+          <section class="form-section">
+            <div class="section-title">
+              <span class="step">2</span>
+              <div><h2>Docente</h2><p>Escribe la cédula para buscar los datos.</p></div>
+            </div>
+            <div class="teacher-grid">
+              <label>Cédula
+                <div class="input-action">
+                  <input id="cedula" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Ej. 1713315131" required />
+                  <button type="button" class="btn btn-secondary" id="lookupBtn">Buscar</button>
+                </div>
+                <small id="lookupMessage" class="helper"></small>
+              </label>
+              <label>Apellidos y nombres
+                <input id="teacherName" placeholder="Se completa automáticamente" required readonly />
+              </label>
+              <label>Título superior
+                <input id="teacherTitle" placeholder="Ej. Magíster en Sistemas Informáticos" required />
+              </label>
+              <label>Carrera detectada <span class="optional">opcional</span>
+                <input id="teacherCareer" placeholder="Se completa si está registrada" readonly />
+              </label>
+            </div>
+          </section>
+
+          <div class="wizard-nav wizard-nav-end">
+            <button type="button" class="btn btn-primary wizard-next" data-next-page="2">Siguiente</button>
           </div>
-          <div id="activities" class="activities"></div>
         </section>
 
-        <section class="summary-card">
-          <div><span>Total de clases</span><strong id="classCount">0</strong></div>
-          <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
+        <section class="wizard-page" data-wizard-page="2" hidden>
+          <section class="form-section first-section fixed-concept">
+            <div class="section-title compact-title">
+              <span class="step">3</span>
+              <div><h2>Actividad</h2><p>Concepto institucional fijo.</p></div>
+            </div>
+            <div class="fixed-value">
+              <span>Concepto</span>
+              <strong>Clases de refuerzo por carrera</strong>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="section-title activities-title">
+              <div class="title-with-step">
+                <span class="step">4</span>
+                <div><h2>Clases realizadas</h2><p>Agrega una fila por cada fecha trabajada.</p></div>
+              </div>
+              <button type="button" class="btn btn-secondary" id="addActivityBtn">+ Agregar clase</button>
+            </div>
+            <div id="activities" class="activities"></div>
+          </section>
+
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-ghost" data-prev-page="1">Anterior</button>
+            <button type="button" class="btn btn-primary wizard-next" data-next-page="3">Revisar y enviar</button>
+          </div>
         </section>
 
-        <div class="submission-note" id="submissionNote">
-          <strong>Envío administrativo</strong>
-          <span>Cuando la hoja esté completa, envíala para que pueda ser revisada desde el panel de administrador.</span>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn btn-ghost" id="saveDraftBtn">Guardar borrador</button>
-          <button type="button" class="btn btn-secondary" id="printBtn">Imprimir</button>
-          <button type="submit" class="btn btn-secondary" id="pdfBtn">Descargar PDF</button>
-          <button type="button" class="btn btn-primary" id="submitAdminBtn">Enviar al administrador</button>
-        </div>
+        <section class="wizard-page" data-wizard-page="3" hidden>
+          <section class="form-section first-section">
+            <div class="section-title">
+              <span class="step">5</span>
+              <div><h2>Resumen</h2><p>Confirma los datos antes de enviar.</p></div>
+            </div>
+
+            <div class="review-card">
+              <div><span>Docente</span><strong id="reviewTeacher">—</strong></div>
+              <div><span>Cédula</span><strong id="reviewCedula">—</strong></div>
+              <div><span>Período</span><strong id="reviewPeriod">—</strong></div>
+              <div><span>Carrera</span><strong id="reviewCareer">—</strong></div>
+            </div>
+
+            <section class="summary-card">
+              <div><span>Total de clases</span><strong id="classCount">0</strong></div>
+              <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
+            </section>
+
+            <div class="submission-note" id="submissionNote">
+              <strong>Listo para enviar</strong>
+              <span>El valor hora queda pendiente para que lo complete Talento Humano.</span>
+            </div>
+          </section>
+
+          <div class="wizard-nav final-nav">
+            <button type="button" class="btn btn-ghost" data-prev-page="2">Anterior</button>
+            <div class="final-actions">
+              <button type="button" class="btn btn-ghost" id="saveDraftBtn">Guardar borrador</button>
+              <button type="button" class="btn btn-secondary" id="printBtn">Imprimir</button>
+              <button type="submit" class="btn btn-secondary" id="pdfBtn">Descargar PDF</button>
+              <button type="button" class="btn btn-primary" id="submitAdminBtn">Enviar al administrador</button>
+            </div>
+          </div>
+        </section>
       </form>
     </section>
 
