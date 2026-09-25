@@ -28,8 +28,8 @@
     <section class="panel form-panel" aria-label="Formulario de hoja financiera">
       <div class="panel-heading">
         <div>
-          <p class="eyebrow">Formulario</p>
-          <h1>Nueva hoja financiera</h1>
+          <p class="eyebrow">Formulario docente</p>
+          <h1>Registro de hoja financiera</h1>
         </div>
         <button class="btn btn-ghost" type="button" id="clearBtn">Limpiar</button>
       </div>
@@ -123,15 +123,7 @@
       </form>
     </section>
 
-    <aside class="preview-panel" aria-label="Vista previa">
-      <div class="preview-heading">
-        <div>
-          <p class="eyebrow">Vista previa</p>
-          <h2>Documento final</h2>
-        </div>
-        <span class="live-pill">En vivo</span>
-      </div>
-      <div class="preview-viewport">
+    <section class="export-document" aria-hidden="true">
         <div id="pdfContent" class="pdf-content">
           <section class="pdf-page financial-page" id="financialPage">
             <div class="doc-logo-wrap"><img src="assets/logo-itsqmet.jpg" alt="ITSQMET" class="doc-logo" /></div>
@@ -189,8 +181,7 @@
             <div id="evidenceList" class="evidence-list"></div>
           </section>
         </div>
-      </div>
-    </aside>
+    </section>
   </main>
 
   <template id="activityTemplate">
