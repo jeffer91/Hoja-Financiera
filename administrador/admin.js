@@ -252,7 +252,7 @@ function openSheet(id) {
   if (!item) return;
   currentId = id;
   $('dialogTitle').textContent = item.docente || 'Hoja financiera';
-  $('dialogCode').textContent = 'Código: ' + id + ' · Enviada: ' + formatDateTime(item.fechaEnvio);
+  $('dialogCode').textContent = 'Código: ' + id + ' · Enviada: ' + formatDateTime(item.fechaEnvio) + (item.origenDocente === 'manual' ? ' · DOCENTE NUEVO (verificar datos)' : '');
   $('editTeacher').value = item.docente || '';
   $('editCedula').value = item.cedula || '';
   $('editTitle').value = item.tituloSuperior || '';
@@ -351,6 +351,7 @@ function exportExcel() {
   const rows = filtered.map(r => ({
     Estado: r.estado || '',
     Docente: r.docente || '',
+    Origen_docente: r.origenDocente === 'manual' ? 'Ingreso manual (verificar)' : 'Firebase / no especificado',
     Cedula: r.cedula || '',
     Titulo: r.tituloSuperior || '',
     Carrera: r.carrera || '',
