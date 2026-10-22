@@ -23,6 +23,7 @@ const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y 
 let currentWizardPage = 1;
 let teacherSource = '';
 let lookupSequence = 0;
+const validatedPages = new Set();
 
 let db = null;
 try {
@@ -144,6 +145,9 @@ function updateAll() {
   $('hoursTotal').textContent = nfmt(hours);
   updateWizardSummary();
   renderPreview(rows, hours);
+  // Las marcas rojas se actualizan en tiempo real tras intentar avanzar.
+  if (validatedPages.has(1)) validateTeacherFields();
+  if (validatedPages.has(2)) validateActivityCards();
 }
 
 function renderPreview(rows, totalHours) {
@@ -362,43 +366,105 @@ function updateWizardSummary() {
   $('reviewCareer').textContent = $('teacherCareer').value.trim() || 'No registrada';
 }
 
+function markFieldInvalid(field, invalid) {
+  if (!field) return;
+  field.classList.toggle('is-invalid', invalid);
+  if (invalid) field.setAttribute('aria-invalid', 'true');
+  else field.removeAttribute('aria-invalid');
+  const label = field.closest('label');
+  if (label) label.classList.toggle('label-error', invalid);
+}
+
+function clearAllValidation() {
+  validatedPages.clear();
+  form.querySelectorAll('.is-invalid').forEach(field => markFieldInvalid(field, false));
+  form.querySelectorAll('.activity-card.has-errors').forEach(card => card.classList.remove('has-errors'));
+}
+
+function validateTeacherFields() {
+  let valid = true;
+  ['startMonth', 'startYear', 'endMonth', 'endYear'].forEach(id => {
+    const field = $(id);
+    const bad = !String(field.value || '').trim() || !field.checkValidity();
+    markFieldInvalid(field, bad);
+    if (bad) valid = false;
+  });
+  if (!validatePeriod()) {
+    markFieldInvalid($('endMonth'), true);
+    markFieldInvalid($('endYear'), true);
+    valid = false;
+  }
+
+  const cedula = $('cedula');
+  const badCedula = !/^\d{10}$/.test(cedula.value.trim());
+  markFieldInvalid(cedula, badCedula);
+  if (badCedula) valid = false;
+
+  ['teacherName', 'teacherTitle'].forEach(id => {
+    const field = $(id);
+    const bad = !field.value.trim();
+    markFieldInvalid(field, bad);
+    if (bad) valid = false;
+  });
+  // La carrera no es obligatoria.
+  return valid;
+}
+
+function validateActivityCard(card) {
+  const date = card.querySelector('.activity-date');
+  const hours = card.querySelector('.activity-hours');
+  const notes = card.querySelector('.activity-notes');
+  const evidence = card.querySelector('.activity-evidence');
+
+  const badDate = !date.value || !date.checkValidity();
+  const badHours = !hours.value.trim() || !hours.checkValidity() ||
+    !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0;
+  const badNotes = !notes.value.trim();
+  // La evidencia es opcional; si hay un enlace, debe ser válido.
+  const badEvidence = !!evidence.value.trim() && !evidence.checkValidity();
+
+  markFieldInvalid(date, badDate);
+  markFieldInvalid(hours, badHours);
+  markFieldInvalid(notes, badNotes);
+  markFieldInvalid(evidence, badEvidence);
+
+  const invalid = badDate || badHours || badNotes || badEvidence;
+  card.classList.toggle('has-errors', invalid);
+  return !invalid;
+}
+
+function validateActivityCards() {
+  const cards = [...list.querySelectorAll('.activity-card')];
+  if (!cards.length) return false;
+  let valid = true;
+  cards.forEach(card => { if (!validateActivityCard(card)) valid = false; });
+  return valid;
+}
+
+function reportValidationError(page, message) {
+  if (currentWizardPage !== page) goToPage(page, false);
+  const target = document.querySelector('[data-wizard-page="' + page + '"] .is-invalid');
+  if (target && !target.readOnly) target.focus();
+  toast(message);
+  return false;
+}
+
 function validateWizardPage(page) {
   if (page === 1) {
-    if (!validatePeriod()) {
-      if (currentWizardPage !== 1) goToPage(1, false);
-      return fail('Revisa el período lectivo.');
-    }
-    if (!/^\d{10}$/.test($('cedula').value.trim())) {
-      if (currentWizardPage !== 1) goToPage(1, false);
-      return fail('Ingresa una cédula válida de 10 dígitos.', $('cedula'));
-    }
-    if (!$('teacherName').value.trim()) {
-      if (currentWizardPage !== 1) goToPage(1, false);
-      return fail('Busca o ingresa el nombre del docente.', $('teacherName'));
-    }
-    if (!$('teacherTitle').value.trim()) {
-      if (currentWizardPage !== 1) goToPage(1, false);
-      return fail('Ingresa el título superior.', $('teacherTitle'));
+    validatedPages.add(1);
+    if (!validateTeacherFields()) {
+      return reportValidationError(1, 'Revisa los campos marcados en rojo de los datos del docente.');
     }
     rememberTitle();
     return true;
   }
-
   if (page === 2) {
-    const rows = activities();
-    if (!rows.length) {
-      if (currentWizardPage !== 2) goToPage(2, false);
-      return fail('Agrega al menos una clase.');
-    }
-    for (let i = 0; i < rows.length; i++) {
-      if (!rows[i].date || rows[i].hours <= 0 || !rows[i].notes) {
-        if (currentWizardPage !== 2) goToPage(2, false);
-        return fail('Completa todos los datos de la clase ' + (i + 1) + '.');
-      }
+    validatedPages.add(2);
+    if (!validateActivityCards()) {
+      return reportValidationError(2, 'Completa los campos rojos de las clases. La evidencia es opcional.');
     }
     return true;
   }
-
   return true;
 }
 
@@ -561,6 +627,7 @@ function restoreDraft() {
 function clearForm() {
   if (!confirm('¿Deseas limpiar la hoja actual?')) return;
   localStorage.removeItem(DRAFT);
+  clearAllValidation();
   form.reset();
   setupPeriod();
   lookupSequence++;
