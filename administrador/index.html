@@ -1,218 +1,51 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0d2f56" />
-  <title>Administrador | Hoja Financiera</title>
-  <link rel="stylesheet" href="admin.css" />
-  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d2f56">
+  <title>Administrador local | Hoja Financiera ITSQMET</title>
+  <style>
+    :root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#123050}
+    *{box-sizing:border-box}
+    body{margin:0;background:#edf2f8;min-height:100vh}
+    header{display:flex;align-items:center;gap:13px;background:#0d2f56;color:#fff;border-bottom:3px solid #ad2437;padding:12px 20px}
+    header img{height:42px;max-width:115px;object-fit:contain;background:white;border-radius:6px;padding:3px}
+    header strong{display:block;font-size:17px}
+    header span{display:block;font-size:12px;color:#d5e2f2}
+    main{max-width:730px;margin:8vh auto;padding:0 15px}
+    .panel{background:white;border:1px solid #d8e2ee;border-radius:15px;box-shadow:0 12px 35px #15345513;padding:25px}
+    h1{font-size:24px;margin:0 0 10px}
+    p{font-size:14px;line-height:1.6;color:#40526c}
+    .action{display:block;text-align:center;text-decoration:none;background:#0d2f56;color:white;padding:12px 14px;font-size:15px;font-weight:750;border-radius:9px;margin:14px 0}
+    .action:hover{background:#17487b}
+    .secondary{background:#eaf0f6;color:#0d2f56}
+    .secondary:hover{background:#dce7f2}
+    .notes{border-top:1px solid #dce4ee;margin-top:20px;padding-top:16px}
+    .notes strong{font-size:13px}
+    .notes p{font-size:12px;margin:5px 0}
+    .links{display:flex;flex-wrap:wrap;gap:16px;margin-top:20px}
+    .links a{font-size:12px;color:#164c82}
+  </style>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="../">
-      <img src="../assets/logo-itsqmet.jpg" alt="ITSQMET" />
-      <div><strong>Hoja Financiera</strong><span>Panel de administrador</span></div>
-    </a>
-    <div class="top-actions">
-      <a class="header-link" href="../">Formulario docente</a>
-    </div>
+  <header><img src="../assets/logo-itsqmet.jpg" alt="ITSQMET">
+    <div><strong>Hoja Financiera</strong><span>Administrador sin login</span></div>
   </header>
-
-  <main>
-    <section id="accessView" class="access-wrap" aria-live="polite">
-      <div class="access-card">
-        <p class="eyebrow">Acceso automático</p>
-        <h1>Administrador</h1>
-        <p class="intro" id="accessMessage">Verificando si este navegador está autorizado…</p>
-        <p id="accessErrorCode" class="access-code" hidden></p>
-        <div id="accessHelp" class="setup-note" hidden>
-          <strong id="accessHelpTitle">Configuración de Firebase</strong>
-          <span id="accessHelpDetail"></span>
-          <ol class="access-steps">
-            <li>Abre Authentication en el proyecto Repaso-Fire.</li>
-            <li>Si aparece <strong>Comenzar</strong>, presiónalo.</li>
-            <li>En Método de acceso habilita <strong>Anónimo</strong> y guarda.</li>
-            <li>Regresa a esta pestaña para comprobar la conexión automáticamente.</li>
-          </ol>
-          <a class="access-help-link" href="https://console.firebase.google.com/project/repaso-fire-d8ceb/authentication" target="_blank" rel="noopener noreferrer">Configurar Authentication en Firebase <span aria-hidden="true">↗</span></a>
-        </div>
-        <p class="access-uid" id="accessUid" hidden></p>
-        <div class="access-actions">
-          <button type="button" class="btn primary" id="retryAccessBtn">Reintentar conexión</button>
-          <button type="button" class="btn secondary" id="copyUidBtn" hidden>Copiar identificador</button>
-        </div>
-        <p class="access-note">No se requiere correo ni contraseña. El navegador debe estar autorizado en Firebase para proteger las hojas financieras.</p>
-      </div>
-    </section>
-
-    <section id="dashboardView" class="dashboard" hidden>
-      <div class="page-heading">
-        <div>
-          <p class="eyebrow">Control administrativo</p>
-          <h1>Hojas financieras</h1>
-          <p id="adminIdentity" class="muted"></p>
-        </div>
-        <div class="heading-actions">
-          <button class="btn secondary" id="refreshBtn">Actualizar</button>
-          <button class="btn primary" id="exportBtn">Exportar Excel</button>
-        </div>
-      </div>
-
-      <section class="periods-card" aria-labelledby="periodsHeading">
-        <div class="periods-header"><div>
-          <h2 id="periodsHeading">Períodos lectivos</h2>
-          <p id="periodsStatus" class="muted" role="status">Consultando períodos en Firebase…</p>
-        </div></div>
-        <form id="createPeriodForm" class="periods-form">
-          <label>Mes de inicio<select id="adminStartMonth" required></select></label>
-          <label>Año de inicio<input id="adminStartYear" type="number" min="2020" max="2100" required /></label>
-          <label>Mes de fin<select id="adminEndMonth" required></select></label>
-          <label>Año de fin<input id="adminEndYear" type="number" min="2020" max="2100" required /></label>
-          <button id="createPeriodBtn" type="submit" class="btn primary">Crear y activar</button>
-        </form>
-        <div id="periodsList" class="periods-list" aria-label="Períodos guardados"></div>
-        <p class="periods-hint">Solo puede haber un período activo. Los cambios no alteran las hojas ya enviadas.</p>
-      </section>
-
-      <section class="stats" aria-label="Resumen">
-        <article><span>Recibidas</span><strong id="statTotal">0</strong></article>
-        <article><span>Pendientes</span><strong id="statPending">0</strong></article>
-        <article><span>Aprobadas</span><strong id="statApproved">0</strong></article>
-        <article><span>Observadas</span><strong id="statObserved">0</strong></article>
-        <article><span>Horas</span><strong id="statHours">0</strong></article>
-        <article><span>Valor estimado</span><strong id="statMoney">$0.00</strong></article>
-      </section>
-
-      <section class="filters-card">
-        <div class="filters">
-          <label>Buscar
-            <input id="searchFilter" type="search" placeholder="Docente o cédula" />
-          </label>
-          <label>Estado
-            <select id="statusFilter">
-              <option value="">Todos</option>
-              <option>Enviada</option>
-              <option>Revisada</option>
-              <option>Aprobada</option>
-              <option>Observada</option>
-            </select>
-          </label>
-          <label>Período
-            <select id="periodFilter"><option value="">Todos</option></select>
-          </label>
-          <label>Carrera
-            <select id="careerFilter"><option value="">Todas</option></select>
-          </label>
-        </div>
-      </section>
-
-      <section class="table-card">
-        <div class="table-meta">
-          <strong id="resultCount">0 registros</strong>
-          <span id="syncStatus">Esperando datos…</span>
-        </div>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Estado</th>
-                <th>Docente</th>
-                <th>Cédula</th>
-                <th>Período</th>
-                <th>Carrera</th>
-                <th>Clases</th>
-                <th>Horas</th>
-                <th>Total</th>
-                <th>Enviado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="sheetRows"></tbody>
-          </table>
-        </div>
-        <div id="emptyState" class="empty" hidden>No hay hojas que coincidan con los filtros.</div>
-      </section>
-    </section>
-  </main>
-
-  <dialog id="sheetDialog">
-    <form method="dialog" class="dialog-shell" id="sheetForm">
-      <div class="dialog-head">
-        <div>
-          <p class="eyebrow">Revisión</p>
-          <h2 id="dialogTitle">Hoja financiera</h2>
-          <p id="dialogCode" class="muted small"></p>
-        </div>
-        <button class="close-btn" value="cancel" aria-label="Cerrar">×</button>
-      </div>
-
-      <div class="dialog-grid">
-        <label>Docente
-          <input id="editTeacher" readonly />
-        </label>
-        <label>Cédula
-          <input id="editCedula" readonly />
-        </label>
-        <label>Título superior
-          <input id="editTitle" />
-        </label>
-        <label>Carrera
-          <input id="editCareer" />
-        </label>
-        <label>Período
-          <input id="editPeriod" readonly />
-        </label>
-        <label>Estado
-          <select id="editStatus">
-            <option>Enviada</option>
-            <option>Revisada</option>
-            <option>Aprobada</option>
-            <option>Observada</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="section-head">
-        <h3>Clases registradas</h3>
-        <span id="dialogTotals" class="muted"></span>
-      </div>
-      <div id="editActivities" class="edit-activities"></div>
-
-      <label class="admin-note">Observación administrativa
-        <textarea id="editObservation" rows="3" placeholder="Escribe aquí una observación para seguimiento."></textarea>
-      </label>
-
-
-      <details class="history-panel">
-        <summary>Historial de modificaciones administrativas</summary>
-        <div id="historyList" class="history-list"></div>
-      </details>
-
-      <div class="dialog-actions">
-        <button type="button" class="btn secondary" id="printSheetBtn">Imprimir / PDF</button>
-        <button type="button" class="btn warning" id="markObservedBtn">Observar</button>
-        <button type="button" class="btn secondary" id="markReviewedBtn">Marcar revisada</button>
-        <button type="button" class="btn success" id="approveBtn">Aprobar</button>
-        <button type="button" class="btn primary" id="saveSheetBtn">Guardar cambios</button>
-      </div>
-    </form>
-  </dialog>
-
-  <template id="editActivityTemplate">
-    <article class="activity-edit-card">
-      <div class="activity-edit-head"><strong>Clase <span class="n"></span></strong></div>
-      <div class="activity-edit-grid">
-        <label>Fecha<input class="date" type="date" /></label>
-        <label>Valor hora <span class="optional">Talento Humano</span><input class="value" type="number" min="0" step="0.01" placeholder="Completa Talento Humano" /></label>
-        <label>Horas<input class="hours" type="number" min="0.25" step="0.25" /></label>
-        <label class="full">Observaciones<textarea class="notes" rows="2"></textarea></label>
-        <label class="full">Evidencia<input class="evidence" type="url" /></label>
-      </div>
-    </article>
-  </template>
-
-  <div class="toast" id="toast"></div>
-  <script type="module" src="admin.js"></script>
+  <main><section class="panel">
+    <h1>Acceso directo al administrador</h1>
+    <p>El administrador de hojas financieras funciona en tu computadora, sin usuario, contraseña, PIN ni Firebase Authentication. Así los datos personales y de pago no quedan abiertos públicamente en GitHub Pages.</p>
+    <a class="action" href="http://127.0.0.1:8765/desktop-admin/">Abrir administrador en esta computadora</a>
+    <a class="action secondary" href="https://github.com/jeffer91/Hoja-Financiera/blob/main/desktop-admin/INSTRUCCIONES.md">Instalar administrador (una sola vez)</a>
+    <div class="notes">
+      <strong>Para entrar</strong>
+      <p>Abre primero <code>desktop-admin/iniciar-administrador.cmd</code> en Windows. Después podrás usar el botón de arriba y gestionar períodos, docentes, hojas y pagos sin ingresar credenciales.</p>
+      <p>La cuenta de servicio utilizada para conectar Firebase queda únicamente en tu computadora, no en esta página. Si el servidor local no está iniciado, el navegador indicará que no puede conectarse.</p>
+    </div>
+    <nav class="links">
+      <a href="../">Formulario docente</a>
+      <a href="https://github.com/jeffer91/Hoja-Financiera/archive/refs/heads/main.zip">Descargar aplicación completa</a>
+    </nav>
+  </section></main>
 </body>
 </html>
