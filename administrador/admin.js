@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getDatabase, ref, get, onValue, update, runTransaction } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+import { getDatabase, ref, get, onValue, update, runTransaction, push } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
 const firebaseConfig = {
@@ -398,7 +398,7 @@ function applyFilters() {
   const career = $('careerFilter').value;
 
   filtered = records.filter(item => {
-    const haystack = (item.docente + ' ' + item.cedula).toLowerCase();
+    const haystack = (String(item.docente || '') + ' ' + String(item.cedula || '')).toLowerCase();
     if (q && !haystack.includes(q)) return false;
     if (status && item.estado !== status) return false;
     if (period && item.periodo?.etiqueta !== period) return false;
@@ -505,57 +505,104 @@ function renderEditActivities(items) {
 }
 
 function editedActivities() {
-  return [...$('editActivities').querySelectorAll('.activity-edit-card')].map(card => ({
-    date: card.querySelector('.date').value,
-    valueHour: Number(card.querySelector('.value').value || 0),
-    hours: Number(card.querySelector('.hours').value || 0),
-    notes: card.querySelector('.notes').value.trim(),
-    evidence: card.querySelector('.evidence').value.trim()
-  }));
+  return [...$('editActivities').querySelectorAll('.activity-edit-card')].map(card => {
+    const rate = card.querySelector('.value').value.trim();
+    return {
+      date: card.querySelector('.date').value,
+      valueHour: rate === '' ? null : Number(rate),
+      hours: Number(card.querySelector('.hours').value),
+      notes: card.querySelector('.notes').value.trim(),
+      evidence: card.querySelector('.evidence').value.trim()
+    };
+  });
+}
+
+function validActivityDate(date, period) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = new Date(date + 'T12:00:00');
+  if (Number.isNaN(parsed.getTime()) || parsed.getFullYear() !== Number(date.slice(0,4)) ||
+      parsed.getMonth() + 1 !== Number(date.slice(5,7)) ||
+      parsed.getDate() !== Number(date.slice(8,10))) return false;
+  if (!period?.anioInicio || !period?.mesInicio || !period?.anioFin || !period?.mesFin) return true;
+  return date.slice(0,7) >= period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') &&
+    date.slice(0,7) <= period.anioFin + '-' + String(period.mesFin).padStart(2,'0');
+}
+
+function validEvidenceUrl(value) {
+  if (!value) return true;
+  try { return ['https:', 'http:'].includes(new URL(value).protocol); }
+  catch { return false; }
 }
 
 function updateDialogTotals() {
   const items = editedActivities();
-  const hours = items.reduce((s, x) => s + x.hours, 0);
-  const value = items.reduce((s, x) => s + x.hours * x.valueHour, 0);
-  $('dialogTotals').textContent = items.length + ' clases · ' + number(hours) + ' horas · ' + currency(value);
+  const hours = items.reduce((s,x) => s + (Number.isFinite(x.hours) ? x.hours : 0),0);
+  const value = items.reduce((s,x) => s + (Number.isFinite(x.hours) && Number.isFinite(x.valueHour) ? x.hours*x.valueHour : 0),0);
+  $('dialogTotals').textContent = items.length + ' clases · ' + number(hours) + ' horas · ' +
+    (items.some(x => x.valueHour === null) ? 'Valor por hora pendiente de Talento Humano' : currency(value));
 }
 
 async function saveCurrent(closeAfter = false) {
-  if (!currentId) return;
+  if (!currentId) return false;
+  const previous = records.find(r => r.id === currentId);
+  if (!previous) { toast('La hoja ya no está disponible. Actualiza la lista.'); return false; }
   const items = editedActivities();
-  if (!items.length) return toast('La hoja no tiene clases registradas.');
-  if (items.some(x => !x.date || x.hours <= 0 || x.valueHour <= 0 || !x.notes)) {
-    return toast('Revisa las clases: faltan datos obligatorios.');
+  if (!items.length) { toast('Debe existir al menos una clase.'); return false; }
+  if (items.some(x => !validActivityDate(x.date, previous.periodo) ||
+    !Number.isFinite(x.hours) || x.hours < 0.25 || Math.round(x.hours*4) !== x.hours*4 ||
+    !x.notes || (x.valueHour !== null && (!Number.isFinite(x.valueHour) || x.valueHour < 0)) ||
+    !validEvidenceUrl(x.evidence))) {
+    toast('Revisa fechas, horas, observaciones, valores por hora y enlaces.');
+    return false;
   }
-  const hours = items.reduce((s, x) => s + x.hours, 0);
-  const value = items.reduce((s, x) => s + x.hours * x.valueHour, 0);
+  const status = $('editStatus').value;
+  if (!['Enviada','Revisada','Observada','Aprobada'].includes(status)) return false;
+  if (status === 'Observada' && !$('editObservation').value.trim()) {
+    toast('Escribe una observación antes de marcar la hoja como observada.');
+    return false;
+  }
+  if (status === 'Aprobada' && items.some(x => x.valueHour === null || x.valueHour <= 0)) {
+    toast('No se puede aprobar para pago sin completar todos los valores por hora.');
+    return false;
+  }
+  const hours = items.reduce((s,x) => s + x.hours,0);
+  const value = items.reduce((s,x) => s + x.hours*(x.valueHour ?? 0),0);
   const payload = {
-    tituloSuperior: $('editTitle').value.trim(),
-    carrera: $('editCareer').value.trim(),
-    estado: $('editStatus').value,
-    observacionAdmin: $('editObservation').value.trim(),
-    actividades: items,
-    evidencias: items.filter(x => x.evidence).length,
-    totales: {
-      clases: items.length,
-      horas,
-      valor: Number(value.toFixed(2))
-    },
-    fechaActualizacion: Date.now()
+    tituloSuperior:$('editTitle').value.trim(),
+    carrera:$('editCareer').value.trim(),
+    estado:status,
+    observacionAdmin:$('editObservation').value.trim(),
+    actividades:items,
+    evidencias:items.filter(x => x.evidence).length,
+    totales:{clases:items.length, horas, valor:Number(value.toFixed(2))},
+    fechaActualizacion:Date.now()
   };
-
+  if (!payload.tituloSuperior) { toast('Completa el título superior.'); return false; }
+  const changes = {};
+  for (const key of ['tituloSuperior','carrera','estado','observacionAdmin','actividades','evidencias','totales']) {
+    if (JSON.stringify(previous[key] ?? null) !== JSON.stringify(payload[key] ?? null)) {
+      changes[key] = {anterior:previous[key] ?? null, nuevo:payload[key] ?? null};
+    }
+  }
+  if (!Object.keys(changes).length) { toast('No hay cambios pendientes.'); return true; }
+  const historyKey = push(ref(db,'hojasFinancieras/'+currentId+'/historialCambios')).key;
+  if (!historyKey) { toast('No se pudo crear el identificador de auditoría.'); return false; }
+  payload['historialCambios/'+historyKey] = {
+    fecha:Date.now(),
+    uid:auth.currentUser?.uid || 'sin-uid',
+    tipo:'Actualización administrativa',
+    cambios:changes
+  };
   $('saveSheetBtn').disabled = true;
   try {
-    await update(ref(db, 'hojasFinancieras/' + currentId), payload);
-    toast('Cambios guardados.');
+    await update(ref(db,'hojasFinancieras/'+currentId),payload);
+    toast('Cambios guardados con historial.');
     if (closeAfter) $('sheetDialog').close();
+    return true;
   } catch (error) {
-    console.error(error);
-    toast('Firebase rechazó la actualización.');
-  } finally {
-    $('saveSheetBtn').disabled = false;
-  }
+    console.error(error); toast('Firebase rechazó la actualización.');
+    return false;
+  } finally { $('saveSheetBtn').disabled = false; }
 }
 
 async function setStatusAndSave(status) {
@@ -618,7 +665,7 @@ function printCurrent() {
   const totalHours = item.actividades.reduce((s,x) => s + x.hours, 0);
   const rows = item.actividades.map((x,i) => {
     const d = x.date ? x.date.split('-') : [];
-    return '<tr><td>' + (i+1) + '</td><td>CLASES DE REFUERZO POR CARRERA</td><td>' + (d[1] || '') + '</td><td>' + (d[2] || '') + '</td><td>' + esc(x.valueHour) + '</td><td>' + esc(x.hours) + '</td><td>' + esc(x.notes) + '</td></tr>';
+    return '<tr><td>' + (i+1) + '</td><td>CLASES DE REFUERZO POR CARRERA</td><td>' + (d[1] || '') + '</td><td>' + (d[2] || '') + '</td><td>' + esc(x.valueHour ?? '') + '</td><td>' + esc(x.hours) + '</td><td>' + esc(x.notes) + '</td></tr>';
   }).join('');
   const win = window.open('', '_blank');
   if (!win) return toast('El navegador bloqueó la ventana de impresión.');
