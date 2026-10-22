@@ -7,6 +7,7 @@ const linkToken=query.get('clave')||'';
 if(linkToken.length>=32) {
   state.token=linkToken;
   try{sessionStorage.setItem('hf_admin_capability',state.token);}catch{}
+  try{history.replaceState(null,'',location.pathname+location.search);}catch{}
 } else {
   try{state.token=sessionStorage.getItem('hf_admin_capability')||'';}catch{}
 }
@@ -57,7 +58,12 @@ async function refreshPrivate() {
   } catch(e) {
     $('privatePanel').hidden=true;
     $('privateHint').hidden=false;
-    notice('El enlace privado no está autorizado o la API no tiene Firebase configurado: '+e.message,'error');
+    const serverNotConfigured=/503|configuración privada de Firebase/i.test(e.message);
+    notice(serverNotConfigured
+      ? 'La conexión entre Render y Firebase todavía no está configurada. Tu enlace privado puede ser válido; faltan las credenciales del servidor.'
+      : /403|autorizado/i.test(e.message)
+        ? 'El enlace privado del administrador no está autorizado.'
+        : 'No se pudo consultar la administración: '+e.message,'error');
   }
 }
 function renderPeriods() {
