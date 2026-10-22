@@ -10,6 +10,13 @@ export const STATES = Object.freeze({received:'Recibida', observed:'Observada', 
 const MAX_BODY=16*1024*1024;
 const MAX_PDF=10*1024*1024;
 const MAX_HOURLY_UPLOADS=5;
+const INITIAL_PERIOD_ID = '2026-02_2026-08';
+const INITIAL_PERIOD = Object.freeze({
+  id: INITIAL_PERIOD_ID,
+  mesInicio: 2, anioInicio: 2026,
+  mesFin: 8, anioFin: 2026,
+  etiqueta: 'Febrero 2026 - Agosto 2026'
+});
 const rate=new Map();
 let db, bucket, initializationError;
 try {
@@ -107,17 +114,29 @@ async function storePdf(id,version,bytes) {
   }});
   return path;
 }
-function currentPeriod(source) {
-  const id=source?.activoId, p=id&&source.periodos?.[id];
-  if(!p)return null;
-  return {...p,id};
+function availablePeriods(source) {
+  const available = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
+  for (const [id,period] of Object.entries(source?.periodos || {})) {
+    if (/^\d{4}-\d{2}_\d{4}-\d{2}$/.test(id) && validPeriod({...period,id})
+      && Number.isInteger(period.mesInicio) && Number.isInteger(period.mesFin)
+      && Number.isInteger(period.anioInicio) && Number.isInteger(period.anioFin)
+      && period.mesInicio>=1 && period.mesInicio<=12 && period.mesFin>=1 && period.mesFin<=12
+      && period.anioFin*12+period.mesFin>=period.anioInicio*12+period.mesInicio) {
+      available[id] = {...period,id};
+    }
+  }
+  return available;
+}
+export function selectedPeriod(source,id) {
+  if (typeof id!=='string') return null;
+  return availablePeriods(source)[id] || null;
 }
 async function submit(req,res) {
   if(!throttle(req,res))return;
   const input=await body(req);
   const periodSnap=await db.ref('periodosHojaFinanciera').get();
-  const period=currentPeriod(periodSnap.val());
-  if(!period)throw Error('No hay período lectivo activo');
+  const period=selectedPeriod(periodSnap.val(),input.periodoId);
+  if(!period)throw Error('Selecciona un período lectivo válido');
   const sheet=verifySheet(input.hoja,period),bytes=readPdf(input.pdf);
   const id=db.ref('hojasFinancieras').push().key;
   const capability=randomBytes(32).toString('base64url');
@@ -164,7 +183,7 @@ async function revise(req,res) {
 async function getPeriods(res) {
   const snap=await db.ref('periodosHojaFinanciera').get();
   const v=snap.val()||{};
-  reply(res,200,{periodos:v.periodos||{},activoId:v.activoId||null});
+  reply(res,200,{periodos:availablePeriods(v),activoId:v.activoId||null});
 }
 async function changeAdminPeriod(req,res) {
   const payload=await body(req);
@@ -281,8 +300,11 @@ export async function handler(req,res) {
         reason:'firebase-unavailable'});
     }
   }
+  if(req.method==='GET' && url.pathname==='/api/periods' && !db)
+    return reply(res,200,{periodos:availablePeriods(null),activoId:null});
   if(!db||!bucket)return error(res,503,'El servicio todavía requiere la configuración privada de Firebase');
   try {
+    if(req.method==='GET'&&url.pathname==='/api/periods')return await getPeriods(res);
     if(req.method==='GET'&&url.pathname==='/api/status')return await status(res,url);
     if(req.method==='GET'&&url.pathname==='/api/admin/stats')return await stats(res);
     if(req.method==='POST'&&url.pathname==='/api/submit')return await submit(req,res);
