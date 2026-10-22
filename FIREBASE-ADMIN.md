@@ -29,7 +29,9 @@ El UID no es una contraseña y no debe tratarse como un secreto. La seguridad de
 
 El panel ahora muestra el **código real del error** y permite reintentar sin correo ni contraseña.
 
-- `auth/operation-not-allowed`, `auth/admin-restricted-operation` o `auth/configuration-not-found`: habilita **Authentication → Sign-in method → Anónimo** en el proyecto `repaso-fire-d8ceb`.
+- `auth/configuration-not-found`: Authentication aún podría no estar inicializado en el proyecto. En [Firebase Authentication](https://console.firebase.google.com/project/repaso-fire-d8ceb/authentication), pulsa **Comenzar** si aparece, después ve a **Método de acceso → Anónimo → Habilitar → Guardar**.
+- `auth/operation-not-allowed` o `auth/admin-restricted-operation`: el proveedor Anónimo está deshabilitado. Actívalo y guarda en el mismo lugar.
+- El administrador puede reintentar automáticamente al volver desde la consola, o mediante el botón **Reintentar conexión**.
 - `auth/network-request-failed`: revisa conexión, bloqueadores y restricciones de red.
 - `auth/app-not-authorized` o `auth/unauthorized-domain`: comprueba las restricciones de API Key y dominios en Firebase.
 - Si muestra un **UID**, Firebase ya logró autenticar el navegador; solo falta añadir `administradores/UID/activo = true` con valor booleano en Realtime Database y pulsar **Reintentar**.
