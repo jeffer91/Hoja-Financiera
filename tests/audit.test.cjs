@@ -184,7 +184,7 @@ test('El servidor impide pagos no válidos y períodos incorrectos',()=>{
   const validate=make(server,'validateChanges');
   const activities=[{date:'2026-10-22',valueHour:null,hours:2,notes:'Clase',evidence:''}];
   const proposal={estado:'Revisada',tituloSuperior:'Magíster',carrera:'Mecánica',
-    observacionAdmin:'',actividades,evidencias:0,
+    observacionAdmin:'',actividades:activities,evidencias:0,
     totales:{clases:1,horas:2,valor:0},fechaActualizacion:Date.now()};
   assert.equal(validate(proposal),true);
   assert.equal(validate({...proposal,estado:'Aprobada'}),false);
