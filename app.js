@@ -46,6 +46,7 @@ if (!restoreDraft()) addActivity();
 updateAll();
 goToPage(1, false);
 listenActivePeriod();
+checkPrivateSheetLink();
 
 function validPeriod(entry) {
   if (!entry || typeof entry !== 'object') return false;
@@ -73,7 +74,7 @@ function setActivePeriod(data) {
 
 function renderPeriodAvailability() {
   const banner = $('periodUnavailable');
-  if (activePeriod) {
+  if (activePeriod || correctionTarget?.periodo) {
     banner.hidden = true;
   } else {
     banner.hidden = false;
@@ -83,7 +84,7 @@ function renderPeriodAvailability() {
         ? 'No se pudo consultar el período autorizado. Contacta a Titulación.'
         : 'No hay un período lectivo activo. Titulación debe habilitarlo antes de enviar una hoja.';
   }
-  ['printBtn','pdfBtn','submitAdminBtn'].forEach(id => { $(id).disabled = !activePeriod; });
+  ['printBtn','pdfBtn','submitAdminBtn'].forEach(id => { $(id).disabled = !activePeriod && !correctionTarget?.periodo; });
 }
 
 function listenActivePeriod() {
@@ -363,11 +364,12 @@ function restoreTitle(cedula) {
 }
 
 function periodLabel() {
-  return activePeriod ? activePeriod.etiqueta : '';
+  const period=correctionTarget?.periodo||activePeriod;
+  return period ? period.etiqueta : '';
 }
 
 function ensurePeriod() {
-  if (activePeriod) return true;
+  if (correctionTarget?.periodo || activePeriod) return true;
   renderPeriodAvailability();
   toast('No hay un período activo. El administrador debe habilitarlo antes de enviar o descargar.');
   return false;
@@ -445,16 +447,18 @@ function validClassDate(date) {
   const [y,m,d] = date.split('-').map(Number);
   const actual = new Date(y, m-1, d);
   if (actual.getFullYear() !== y || actual.getMonth() !== m-1 || actual.getDate() !== d) return false;
-  if (!activePeriod) return true;
+  const period=correctionTarget?.periodo||activePeriod;
+  if (!period) return true;
   const month = date.slice(0,7);
-  return month >= activePeriod.anioInicio + '-' + String(activePeriod.mesInicio).padStart(2,'0') &&
-    month <= activePeriod.anioFin + '-' + String(activePeriod.mesFin).padStart(2,'0');
+  return month >= period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') &&
+    month <= period.anioFin + '-' + String(period.mesFin).padStart(2,'0');
 }
 
 function defaultClassDate() {
   const now = today();
-  if (!activePeriod || validClassDate(now)) return now;
-  return activePeriod.anioInicio + '-' + String(activePeriod.mesInicio).padStart(2,'0') + '-01';
+  const period=correctionTarget?.periodo||activePeriod;
+  if (!period || validClassDate(now)) return now;
+  return period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') + '-01';
 }
 
 function validEvidenceUrl(value) {
@@ -571,6 +575,43 @@ function submissionPayload() {
     actividades:rows
   };
 }
+async function loadCorrection(id,capability) {
+  try {
+    const result=await apiRequest('/api/private/sheet?id='+encodeURIComponent(id),{sheetToken:capability});
+    if(result.estado!=='Observada') {
+      toast('Esta hoja no está devuelta para corrección. Estado: '+result.estado);
+      return;
+    }
+    correctionTarget={id,capability,periodo:result.periodo};
+    $('cedula').value=result.cedula||'';
+    $('teacherName').value=result.docente||'';
+    $('teacherTitle').value=result.tituloSuperior||'';
+    $('teacherCareer').value=result.carrera||'';
+    teacherSource='manual';
+    $('teacherName').readOnly=false;
+    $('teacherCareer').readOnly=false;
+    $('manualTeacherBtn').textContent='Edición de hoja observada';
+    list.replaceChildren();
+    for(const activity of result.actividades||[])addActivity(activity);
+    if(!list.children.length)addActivity();
+    $('statusResults').hidden=false;
+    $('statusResults').replaceChildren();
+    const note=document.createElement('strong');
+    note.textContent='Observaciones de tu hoja:';
+    const msg=document.createElement('p');
+    msg.textContent=result.observacionAdmin||'Corrige y vuelve a subir el PDF firmado.';
+    $('statusResults').append(note,msg);
+    renderPeriodAvailability();
+    updateAll();
+    goToPage(1,false);
+    toast('Hoja observada recuperada. Corrige, descarga otro PDF y súbelo firmado.');
+  }catch(e){toast('No se pudo recuperar la hoja privada: '+e.message);}
+}
+function checkPrivateSheetLink() {
+  const params=new URLSearchParams(location.search);
+  const id=params.get('hoja'),capability=params.get('clave');
+  if(id&&capability)void loadCorrection(id,capability);
+}
 async function consultStatus() {
   const cedula=$('cedula').value.replace(/\D/g,'');
   if(!/^\d{10}$/.test(cedula)){toast('Ingresa tu cédula de 10 dígitos.');return;}
@@ -596,11 +637,7 @@ async function consultStatus() {
           const btn=document.createElement('button');btn.type='button';btn.className='btn btn-secondary';
           btn.style.margin='6px 0 0';
           btn.textContent='Preparar corrección de esta hoja';
-          btn.addEventListener('click',()=>{
-            correctionTarget={id:h.id,capability:cap};
-            goToPage(2,false);
-            toast('Corrige la hoja, descarga un nuevo PDF y súbelo firmado.');
-          });
+          btn.addEventListener('click',()=>void loadCorrection(h.id,cap));
           card.append(document.createElement('br'),btn);
         } else {
           const p=document.createElement('small');
@@ -652,7 +689,7 @@ async function submitToAdmin() {
     toast('Error al subir el PDF: '+e.message);
   } finally {
     submissionInProgress=false;
-    btn.disabled=!activePeriod;
+    btn.disabled=!activePeriod&&!correctionTarget?.periodo;
     btn.textContent='Subir PDF firmado';
   }
 }
