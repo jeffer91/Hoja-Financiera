@@ -30,13 +30,17 @@ let periodMutationBusy = false;
 let signingIn = false;
 let authorizing = false;
 let verifiedUid = '';
+let retryAfterSettings = false;
 bind();
 showAccessStatus('Verificando el acceso automático…');
 
 function describeAuthError(error) {
   const code = error && typeof error.code === 'string' ? error.code : 'auth/error-desconocido';
-  if (['auth/operation-not-allowed', 'auth/admin-restricted-operation', 'auth/configuration-not-found'].includes(code)) {
-    return {code, title:'Habilita el acceso anónimo en Firebase', message:'El proveedor Anónimo está deshabilitado o sin configurar. Abre Firebase → Authentication → Sign-in method → Anónimo → Habilitar → Guardar. Después pulsa Reintentar.'};
+  if (code === 'auth/configuration-not-found') {
+    return {code, title:'Inicializa Firebase Authentication', message:'Firebase todavía no tiene Authentication configurado en este proyecto. Abre Firebase Authentication y pulsa Comenzar (si aparece); luego ve a Método de acceso, habilita Anónimo y guarda. Al volver a esta pestaña se comprobará de nuevo.'};
+  }
+  if (['auth/operation-not-allowed', 'auth/admin-restricted-operation'].includes(code)) {
+    return {code, title:'Habilita el proveedor Anónimo', message:'Abre Firebase Authentication → Método de acceso → Anónimo → Habilitar → Guardar. Al volver a esta pestaña se comprobará de nuevo.'};
   }
   if (code === 'auth/network-request-failed' || code === 'auth/timeout') {
     return {code,title:'No se pudo contactar con Firebase',message:'Comprueba tu conexión a Internet y que el navegador o un bloqueador no impida el acceso a Firebase. Vuelve a intentarlo.'};
@@ -53,6 +57,7 @@ function describeAuthError(error) {
 function showAuthFailure(error) {
   console.error('Error de autenticación de Firebase:', error);
   const diag = describeAuthError(error);
+  retryAfterSettings = ['auth/configuration-not-found', 'auth/operation-not-allowed', 'auth/admin-restricted-operation'].includes(diag.code);
   showAccessStatus(diag.title, '', {code:diag.code, helpTitle:diag.title, helpDetail:diag.message});
 }
 
@@ -60,6 +65,7 @@ async function authorizeBrowser(user) {
   if (!user || authorizing) return;
   if (verifiedUid === user.uid && !$('dashboardView').hidden) return;
   authorizing = true;
+  retryAfterSettings = false;
   showAccessStatus('Verificando permisos de este navegador…');
   try {
     const allowed = await isAdministrator(user.uid);
@@ -78,6 +84,12 @@ async function authorizeBrowser(user) {
     showDashboard(user);
     listenSheets();
     listenPeriods();
+  } catch (error) {
+    console.error('Error al verificar autorización de administrador:', error);
+    showAccessStatus('No se pudo completar la verificación administrativa.', user.uid, {
+      helpTitle:'Revisa los permisos de Realtime Database',
+      helpDetail:'La autenticación respondió, pero no pudo validarse la autorización de este navegador. Revisa las reglas y vuelve a intentarlo.'
+    });
   } finally {
     authorizing = false;
   }
@@ -87,6 +99,7 @@ async function startAnonymousAccess() {
   if (signingIn) return;
   signingIn = true;
   $('retryAccessBtn').disabled = true;
+  retryAfterSettings = false;
   showAccessStatus('Conectando con Firebase de forma automática…');
   try {
     await signInAnonymously(auth);
@@ -115,6 +128,14 @@ onAuthStateChanged(auth, user => {
     void startAnonymousAccess();
   }
 }, showAuthFailure);
+
+// Al volver desde la consola, realiza una única comprobación automática.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && retryAfterSettings && !signingIn && !authorizing) {
+    retryAfterSettings = false;
+    void retryAccess();
+  }
+});
 
 function bind() {
   $('retryAccessBtn').addEventListener('click', retryAccess);
