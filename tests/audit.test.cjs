@@ -6,8 +6,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-const teacher=read('app.js'), admin=read('administrador/admin.js');
-const teacherHtml=read('index.html'), adminHtml=read('administrador/index.html');
+const teacher=read('app.js'), admin=read('desktop-admin/admin.js');
+const teacherHtml=read('index.html'), adminHtml=read('desktop-admin/index.html');
+const server=read('desktop-admin/server.mjs');
 const stripped=code=>code.replace(/^import .*?;\s*$/gm,'');
 const ids=code=>[...code.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
 
@@ -39,7 +40,8 @@ test('Docente no puede editar períodos y el administrador usa transacciones',()
   for(const id of ['startMonth','startYear','endMonth','endYear','reviewPeriod'])
     assert.ok(!ids(teacherHtml).includes(id));
   assert.match(teacher,/onValue\(ref\(db, PERIODS_PATH\)/);
-  assert.match(admin,/runTransaction\(ref\(db, PERIODS_PATH\)/);
+  assert.ok(admin.includes('postPeriodChange(action, incoming)'));
+  assert.ok(server.includes('.transaction('));
 });
 test('Solo se activa un período y los anteriores quedan guardados',()=>{
   const change=make(admin,'applyPeriodChange');
@@ -148,12 +150,43 @@ test('El despliegue está condicionado a la ejecución de las pruebas',()=>{
   assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
 });
 
-test('El error de proyecto Authentication sin configurar da pasos para inicializarlo',()=>{
-  const fn=make(admin,'describeAuthError');
-  const issue=fn({code:'auth/configuration-not-found'});
-  assert.match(issue.message,/Comenzar/);
-  assert.match(issue.message,/Anónimo/);
-  assert.match(adminHtml,/authentication/);
-  assert.match(adminHtml,/Configurar Authentication en Firebase/);
-  assert.match(admin,/visibilitychange/);
+test('El administrador local abre sin Firebase Authentication',()=>{
+  for(const word of ['firebase-auth','signInAnonymously','onAuthStateChanged','getAuth(']) {
+    assert.ok(!admin.includes(word),word);
+  }
+  assert.ok(!adminHtml.includes('id="accessView"'));
+  assert.ok(adminHtml.includes('<section id="dashboardView" class="dashboard">'));
+  assert.ok(admin.includes('listenSheets();'));
+  assert.ok(admin.includes('listenPeriods();'));
+  assert.ok(read('administrador/index.html').includes('127.0.0.1:8765'));
+});
+
+test('El servidor es local y sus rutas privadas exigen un token',()=>{
+  assert.ok(server.includes("const ADDRESS='127.0.0.1'"));
+  assert.ok(server.includes('timingSafeEqual'));
+  assert.ok(server.includes("req.headers['x-local-admin']"));
+  assert.ok(server.includes('GOOGLE_APPLICATION_CREDENTIALS'));
+  assert.ok(!server.includes("listen(PORT,'0.0.0.0'"));
+  assert.ok(read('.gitignore').includes('service-account'));
+});
+
+test('El servidor impide pagos no válidos y períodos incorrectos',()=>{
+  const validPeriod=make(server,'validatePeriod');
+  const change=new Function('validatePeriod',
+    functionSource(server,'changePeriod')+'\nreturn changePeriod')(validPeriod);
+  const period={id:'2026-10_2027-03',mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027,
+    etiqueta:'Octubre 2026 - Marzo 2027'};
+  assert.equal(validPeriod(period),true);
+  assert.equal(validPeriod({...period,mesInicio:13}),false);
+  assert.equal(change(null,'create',period).activoId,period.id);
+  const active=change(null,'create',period);
+  assert.equal(change(active,'deactivate',{id:period.id}).activoId,null);
+  const validate=make(server,'validateChanges');
+  const activities=[{date:'2026-10-22',valueHour:null,hours:2,notes:'Clase',evidence:''}];
+  const proposal={estado:'Revisada',tituloSuperior:'Magíster',carrera:'Mecánica',
+    observacionAdmin:'',actividades,evidencias:0,
+    totales:{clases:1,horas:2,valor:0},fechaActualizacion:Date.now()};
+  assert.equal(validate(proposal),true);
+  assert.equal(validate({...proposal,estado:'Aprobada'}),false);
+  assert.equal(validate({...proposal,totales:{clases:1,horas:2,valor:900}}),false);
 });
