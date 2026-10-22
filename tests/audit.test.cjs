@@ -128,3 +128,34 @@ test('No se puede crear un documento fuera del período ni con horas inválidas'
 test('Comprobación de páginas está condicionada a las pruebas automáticas',()=>{
   assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
 });
+
+
+test('El docente puede seleccionar Febrero 2026 - Agosto 2026, incluso sin período activo',()=>{
+  assert.match(form,/id="periodSelect"/);
+  assert.match(form,/value="2026-02_2026-08"/);
+  assert.match(teacher,/INITIAL_PERIOD_ID = '2026-02_2026-08'/);
+  assert.match(teacher,/periodoId:activePeriod\?\.id/);
+  assert.match(teacher,/periodId:correctionTarget\?\.periodo\?\.id\|\|activePeriod\?\.id/);
+  assert.match(api,/selectedPeriod\(periodSnap\.val\(\),input\.periodoId\)/);
+  assert.match(api,/\/api\/periods/);
+});
+test('El servidor acepta un período disponible pero rechaza uno inventado por el docente',()=>{
+  const cleanPeriod=pure(api,'validPeriod');
+  const p={id:'2026-02_2026-08',mesInicio:2,anioInicio:2026,mesFin:8,anioFin:2026,etiqueta:'Febrero 2026 - Agosto 2026'};
+  const available=pure(api,'availablePeriods',['INITIAL_PERIOD_ID','INITIAL_PERIOD','validPeriod'],[p.id,p,cleanPeriod]);
+  const selected=pure(api,'selectedPeriod',['availablePeriods'],[available]);
+  assert.equal(selected(null,p.id).etiqueta,p.etiqueta);
+  assert.equal(selected(null,'2027-01_2027-06'),null);
+  const custom={id:'2026-10_2027-03',mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027,etiqueta:'Octubre 2026 - Marzo 2027'};
+  assert.equal(selected({periodos:{[custom.id]:custom}},custom.id).id,custom.id);
+  assert.equal(selected({periodos:{[custom.id]:custom}},p.id).id,p.id);
+});
+test('Las fechas de clase se validan contra el período Febrero–Agosto elegido',()=>{
+  const clean=pure(api,'sanitizeString'),periodCheck=pure(api,'validPeriod');
+  const verify=pure(api,'verifySheet',['sanitizeString','validPeriod'],[clean,periodCheck]);
+  const period={id:'2026-02_2026-08',mesInicio:2,anioInicio:2026,mesFin:8,anioFin:2026};
+  const base={cedula:'1718435009',docente:'Stalin Fabricio Llumiquinga Oña',tituloSuperior:'Ingeniero Automotriz',
+    actividades:[{date:'2026-08-26',hours:2,notes:'Tutoría presencial',evidence:'https://example.org/video'}]};
+  assert.equal(verify(base,period).totales.horas,2);
+  assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],date:'2026-10-22'}]},period));
+});
