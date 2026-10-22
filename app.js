@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getDatabase, ref, get, push, set } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+import { getDatabase, ref, get, push, set, onValue } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyANtWmjXdlHkf-LO4t2gtpyymmjeEr2emI',
@@ -15,6 +15,7 @@ const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto
 const CONCEPT = 'Clases de refuerzo por carrera';
 const DRAFT = 'hoja-financiera-draft-v1';
 const TITLES = 'hoja-financiera-titles-v1';
+const PERIODS_PATH = 'periodosHojaFinanciera';
 const $ = id => document.getElementById(id);
 const form = $('financeForm');
 const list = $('activities');
@@ -24,6 +25,8 @@ let currentWizardPage = 1;
 let teacherSource = '';
 let lookupSequence = 0;
 const validatedPages = new Set();
+let activePeriod = null;
+let periodState = 'loading';
 
 let db = null;
 try {
@@ -34,38 +37,65 @@ try {
   setFirebaseStatus('Firebase no disponible', false);
 }
 
-setupMonths();
-setupPeriod();
 bind();
 if (!restoreDraft()) addActivity();
 updateAll();
 goToPage(1, false);
+listenActivePeriod();
 
-function setupMonths() {
-  ['startMonth','endMonth'].forEach(id => {
-    MONTHS.forEach((m, i) => {
-      const op = document.createElement('option');
-      op.value = String(i + 1);
-      op.textContent = m;
-      $(id).appendChild(op);
-    });
-  });
+function validPeriod(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  const {mesInicio, anioInicio, mesFin, anioFin} = entry;
+  return [mesInicio, mesFin].every(v => Number.isInteger(v) && v >= 1 && v <= 12)
+    && [anioInicio, anioFin].every(v => Number.isInteger(v) && v >= 2020 && v <= 2100)
+    && anioFin * 12 + mesFin >= anioInicio * 12 + mesInicio;
 }
 
-function setupPeriod() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  if (m >= 4 && m <= 9) {
-    $('startMonth').value = '4'; $('startYear').value = y;
-    $('endMonth').value = '9'; $('endYear').value = y;
-  } else if (m >= 10) {
-    $('startMonth').value = '10'; $('startYear').value = y;
-    $('endMonth').value = '3'; $('endYear').value = y + 1;
+function selectActivePeriod(data) {
+  const id = data && typeof data.activoId === 'string' ? data.activoId : null;
+  const entry = id && data.periodos && data.periodos[id];
+  if (!id || !validPeriod(entry)) return null;
+  const label = MONTHS[entry.mesInicio - 1] + ' ' + entry.anioInicio +
+    ' - ' + MONTHS[entry.mesFin - 1] + ' ' + entry.anioFin;
+  return {...entry, id, etiqueta:label};
+}
+
+function setActivePeriod(data) {
+  activePeriod = selectActivePeriod(data);
+  periodState = 'ready';
+  renderPeriodAvailability();
+  updateAll();
+}
+
+function renderPeriodAvailability() {
+  const banner = $('periodUnavailable');
+  if (activePeriod) {
+    banner.hidden = true;
   } else {
-    $('startMonth').value = '10'; $('startYear').value = y - 1;
-    $('endMonth').value = '3'; $('endYear').value = y;
+    banner.hidden = false;
+    banner.textContent = periodState === 'loading'
+      ? 'Verificando la disponibilidad del formulario…'
+      : periodState === 'error'
+        ? 'No se pudo consultar el período autorizado. Contacta a Titulación.'
+        : 'No hay un período lectivo activo. Titulación debe habilitarlo antes de enviar una hoja.';
   }
+  ['printBtn','pdfBtn','submitAdminBtn'].forEach(id => { $(id).disabled = !activePeriod; });
+}
+
+function listenActivePeriod() {
+  renderPeriodAvailability();
+  if (!db) {
+    periodState = 'error';
+    renderPeriodAvailability();
+    return;
+  }
+  onValue(ref(db, PERIODS_PATH), snapshot => setActivePeriod(snapshot.val()), error => {
+    console.error('No se pudo consultar el período activo:', error);
+    activePeriod = null;
+    periodState = 'error';
+    renderPeriodAvailability();
+    updateAll();
+  });
 }
 
 function bind() {
@@ -138,7 +168,6 @@ function activities() {
 }
 
 function updateAll() {
-  validatePeriod();
   const rows = activities();
   const hours = rows.reduce((s, r) => s + r.hours, 0);
   $('classCount').textContent = rows.length;
@@ -320,12 +349,15 @@ function restoreTitle(cedula) {
   } catch (_) {}
 }
 
-function validatePeriod() {
-  const start = Number($('startYear').value) * 12 + Number($('startMonth').value);
-  const end = Number($('endYear').value) * 12 + Number($('endMonth').value);
-  const ok = start > 0 && end > 0 && end >= start;
-  $('periodError').textContent = ok ? '' : 'El período final no puede ser anterior al inicial.';
-  return ok;
+function periodLabel() {
+  return activePeriod ? activePeriod.etiqueta : '';
+}
+
+function ensurePeriod() {
+  if (activePeriod) return true;
+  renderPeriodAvailability();
+  toast('No hay un período activo. El administrador debe habilitarlo antes de enviar o descargar.');
+  return false;
 }
 
 function goToPage(target, validateForward = true) {
@@ -362,7 +394,6 @@ function updateWizardSummary() {
   if (!teacher) return;
   teacher.textContent = $('teacherName').value.trim() || '—';
   $('reviewCedula').textContent = $('cedula').value.trim() || '—';
-  $('reviewPeriod').textContent = periodLabel() || '—';
   $('reviewCareer').textContent = $('teacherCareer').value.trim() || 'No registrada';
 }
 
@@ -383,30 +414,16 @@ function clearAllValidation() {
 
 function validateTeacherFields() {
   let valid = true;
-  ['startMonth', 'startYear', 'endMonth', 'endYear'].forEach(id => {
-    const field = $(id);
-    const bad = !String(field.value || '').trim() || !field.checkValidity();
-    markFieldInvalid(field, bad);
-    if (bad) valid = false;
-  });
-  if (!validatePeriod()) {
-    markFieldInvalid($('endMonth'), true);
-    markFieldInvalid($('endYear'), true);
-    valid = false;
-  }
-
   const cedula = $('cedula');
   const badCedula = !/^\d{10}$/.test(cedula.value.trim());
   markFieldInvalid(cedula, badCedula);
   if (badCedula) valid = false;
-
-  ['teacherName', 'teacherTitle'].forEach(id => {
+  ['teacherName','teacherTitle'].forEach(id => {
     const field = $(id);
     const bad = !field.value.trim();
     markFieldInvalid(field, bad);
     if (bad) valid = false;
   });
-  // La carrera no es obligatoria.
   return valid;
 }
 
@@ -469,6 +486,7 @@ function validateWizardPage(page) {
 }
 
 function validateForm() {
+  if (!ensurePeriod()) return false;
   if (!validateWizardPage(1)) return false;
   if (!validateWizardPage(2)) return false;
   rememberTitle();
@@ -489,6 +507,29 @@ async function submitToAdmin() {
     return;
   }
 
+  // Valida de nuevo en Firebase: el período pudo cambiar mientras se completaba la hoja.
+  let confirmedPeriod;
+  try {
+    const snap = await get(ref(db, PERIODS_PATH));
+    confirmedPeriod = selectActivePeriod(snap.val());
+  } catch (error) {
+    console.error(error);
+    toast('No se pudo verificar el período vigente. Intenta nuevamente.');
+    return;
+  }
+  if (!confirmedPeriod) {
+    setActivePeriod(null);
+    toast('El período fue desactivado. Se canceló el envío.');
+    return;
+  }
+  if (!activePeriod || confirmedPeriod.id !== activePeriod.id) {
+    activePeriod = confirmedPeriod;
+    periodState = 'ready';
+    renderPeriodAvailability();
+    updateAll();
+    toast('Cambió el período vigente. Revisa tu hoja y vuelve a enviarla.');
+    return;
+  }
   const rows = activities();
   const totalHours = rows.reduce((sum, item) => sum + item.hours, 0);
   const totalValue = rows.reduce((sum, item) => sum + item.hours * item.valueHour, 0);
@@ -504,11 +545,12 @@ async function submitToAdmin() {
     tituloSuperior: $('teacherTitle').value.trim(),
     carrera: $('teacherCareer').value.trim(),
     periodo: {
-      mesInicio: Number($('startMonth').value),
-      anioInicio: Number($('startYear').value),
-      mesFin: Number($('endMonth').value),
-      anioFin: Number($('endYear').value),
-      etiqueta: periodLabel()
+      id: confirmedPeriod.id,
+      mesInicio: confirmedPeriod.mesInicio,
+      anioInicio: confirmedPeriod.anioInicio,
+      mesFin: confirmedPeriod.mesFin,
+      anioFin: confirmedPeriod.anioFin,
+      etiqueta: confirmedPeriod.etiqueta
     },
     actividades: rows,
     totales: {
@@ -588,8 +630,6 @@ async function downloadPdf() {
 
 function saveDraft(showMessage) {
   const data = {
-    startMonth:$('startMonth').value, startYear:$('startYear').value,
-    endMonth:$('endMonth').value, endYear:$('endYear').value,
     cedula:$('cedula').value, teacherName:$('teacherName').value,
     teacherSource:teacherSource,
     teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
@@ -604,7 +644,7 @@ function restoreDraft() {
   if (!raw) return false;
   try {
     const d = JSON.parse(raw);
-    ['startMonth','startYear','endMonth','endYear','cedula','teacherName','teacherTitle','teacherCareer'].forEach(k => {
+    ['cedula','teacherName','teacherTitle','teacherCareer'].forEach(k => {
       if (d[k] != null) $(k).value = d[k];
     });
     teacherSource = d.teacherName ? (d.teacherSource === 'firebase' ? 'firebase' : 'manual') : '';
@@ -629,7 +669,6 @@ function clearForm() {
   localStorage.removeItem(DRAFT);
   clearAllValidation();
   form.reset();
-  setupPeriod();
   lookupSequence++;
   teacherSource = '';
   $('teacherName').readOnly = true;
@@ -642,13 +681,6 @@ function clearForm() {
   updateAll();
   goToPage(1, false);
   toast('Formulario limpio.');
-}
-
-function periodLabel() {
-  const sm = Number($('startMonth').value), em = Number($('endMonth').value);
-  const sy = Number($('startYear').value), ey = Number($('endYear').value);
-  if (!sm || !em || !sy || !ey) return '';
-  return MONTHS[sm-1] + ' ' + sy + ' - ' + MONTHS[em-1] + ' ' + ey;
 }
 
 function parseDate(v) {
