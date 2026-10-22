@@ -14,6 +14,7 @@ const rate=new Map();
 let db, bucket, initializationError;
 try {
   const raw=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if(!raw&&!process.env.GOOGLE_APPLICATION_CREDENTIALS)throw Error('Falta una credencial de servicio de Firebase en Render');
   const cred=raw ? cert(JSON.parse(raw)) : applicationDefault();
   const project=raw?JSON.parse(raw).project_id:process.env.GOOGLE_CLOUD_PROJECT;
   if(project && project!=='repaso-fire-d8ceb')throw Error('Proyecto Firebase inesperado');
@@ -61,7 +62,7 @@ export function verifySheet(data,period) {
     if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==a.date||date.getTime()<start||date.getTime()>end)
       throw Error('Una fecha está fuera del período');
     const hours=Number(a.hours), notes=sanitizeString(a.notes,1200), evidence=sanitizeString(a.evidence,2048);
-    if(!Number.isFinite(hours)||hours<=0||hours>24||Math.round(hours*4)!==hours||!notes)throw Error('Revisa horas y observaciones');
+    if(!Number.isFinite(hours)||hours<=0||hours>24||Math.round(hours*4)!==hours*4||!notes)throw Error('Revisa horas y observaciones');
     if(evidence&&!/^https:\/\/[^\s]+$/i.test(evidence))throw Error('El enlace de grabación debe comenzar por https://');
     return {date:a.date,hours,notes,evidence,valueHour:null};
   });
