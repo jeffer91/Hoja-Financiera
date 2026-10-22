@@ -212,14 +212,14 @@ async function privateSheet(req,res,url) {
 }
 async function stats(res) {
   const snap=await db.ref('hojasFinancieras').get();
-  const values=Object.values(snap.val()||{});
+  const values=Object.values(snap.val()||{}).filter(d=>d?.archivoActual&&Number(d.versionActual)>=1);
   const count=v=>values.filter(d=>d.estado===v).length;
   reply(res,200,{total:values.length,pendientes:count(STATES.received),observadas:count(STATES.observed),
     aprobadas:count(STATES.approved),horas:values.reduce((s,d)=>s+Number(d.totales?.horas||0),0)});
 }
 async function sheets(res) {
   const snap=await db.ref('hojasFinancieras').get();
-  const data=Object.entries(snap.val()||{}).map(([id,x])=>({id,...x}));
+  const data=Object.entries(snap.val()||{}).filter(([,x])=>x?.archivoActual&&Number(x.versionActual)>=1).map(([id,x])=>({id,...x}));
   for(const item of data)delete item.capabilityHash;
   reply(res,200,{hojas:data});
 }
@@ -231,6 +231,7 @@ async function action(req,res) {
   const node=db.ref('hojasFinancieras/'+id),s=await node.get();
   if(!s.exists())return error(res,404,'Hoja inexistente');
   const prev=s.val();
+  if(!prev.archivoActual)return error(res,409,'No se puede aprobar un registro sin PDF firmado');
   if(prev.estado===STATES.approved)return error(res,409,'La hoja aprobada está bloqueada');
   if(type==='aprobar'&&prev.estado!==STATES.received)return error(res,409,'Solo se puede aprobar una hoja recibida');
   const newState=type==='aprobar'?STATES.approved:STATES.observed,now=Date.now(),pushKey=node.child('historialCambios').push().key;
