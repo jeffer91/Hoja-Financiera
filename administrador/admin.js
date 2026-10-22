@@ -600,7 +600,7 @@ async function saveCurrent(closeAfter = false) {
     observacionAdmin:$('editObservation').value.trim(),
     actividades:items,
     evidencias:items.filter(x => x.evidence).length,
-    totales:{clases:items.length, horas, valor:Number(value.toFixed(2))},
+    totales:{clases:items.length, horas:hours, valor:Number(value.toFixed(2))},
     fechaActualizacion:Date.now()
   };
   if (!payload.tituloSuperior) { toast('Completa el título superior.'); return false; }
