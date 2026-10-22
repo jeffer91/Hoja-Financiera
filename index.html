@@ -57,6 +57,13 @@
               <button type="button" class="btn btn-new-teacher" id="manualTeacherBtn">+ Docente nuevo</button>
             </div>
             <div class="teacher-grid">
+              <label class="period-choice">Período lectivo
+                <select id="periodSelect" required>
+                  <option value="2026-02_2026-08" selected>Febrero 2026 - Agosto 2026</option>
+                </select>
+                <small class="helper">El período seleccionado aparecerá en el PDF y en la hoja firmada.</small>
+              </label>
+              
               <label>Cédula
                 <div class="input-action">
                   <input id="cedula" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Ej. 1713315131" required />
