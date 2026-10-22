@@ -266,8 +266,21 @@ export async function handler(req,res) {
   if(!cors(req,res))return error(res,403,'Origen no permitido');
   if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
   const url=new URL(req.url,'https://hoja-financiera.example');
-  if(url.pathname==='/api/health')return reply(res,initializationError||!db||!bucket?503:200,
-    {ok:!initializationError&&!!db&&!!bucket,configured:!initializationError,storageBucket:!!bucket});
+  if(url.pathname==='/api/health') {
+    if(initializationError||!db||!bucket)
+      return reply(res,200,{ok:false,configured:false,databaseReady:false,storageReady:false,
+        reason:'credentials-required'});
+    try {
+      await db.ref('periodosHojaFinanciera/activoId').get();
+      const [storageReady]=await bucket.exists();
+      return reply(res,200,{ok:storageReady,configured:true,databaseReady:true,storageReady,
+        reason:storageReady?'ready':'storage-unavailable'});
+    } catch(healthError) {
+      console.error('Firebase health check failed:',healthError.code||healthError.message);
+      return reply(res,200,{ok:false,configured:true,databaseReady:false,storageReady:false,
+        reason:'firebase-unavailable'});
+    }
+  }
   if(!db||!bucket)return error(res,503,'El servicio todavía requiere la configuración privada de Firebase');
   try {
     if(req.method==='GET'&&url.pathname==='/api/status')return await status(res,url);
