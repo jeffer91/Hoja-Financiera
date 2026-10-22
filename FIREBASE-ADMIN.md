@@ -37,10 +37,15 @@ Integra estas condiciones en las reglas existentes sin eliminar reglas de otros 
       ".write": false
     }
   },
+  "periodosHojaFinanciera": {
+    ".read": true,
+    ".write": "auth != null && root.child('administradores').child(auth.uid).child('activo').val() === true"
+  },
   "hojasFinancieras": {
     ".read": "auth != null && root.child('administradores').child(auth.uid).child('activo').val() === true",
     "$id": {
-      ".write": "!data.exists() || (auth != null && root.child('administradores').child(auth.uid).child('activo').val() === true)"
+      ".write": "!data.exists() || (auth != null && root.child('administradores').child(auth.uid).child('activo').val() === true)",
+      ".validate": "data.exists() || (root.child('periodosHojaFinanciera').child('activoId').isString() && newData.child('periodo').child('id').val() === root.child('periodosHojaFinanciera').child('activoId').val() && newData.child('periodo').child('etiqueta').val() === root.child('periodosHojaFinanciera').child('periodos').child(root.child('periodosHojaFinanciera').child('activoId').val()).child('etiqueta').val())"
     }
   }
 }
@@ -48,11 +53,29 @@ Integra estas condiciones en las reglas existentes sin eliminar reglas de otros 
 
 La lectura y la edición de hojas existentes requieren autorización; la creación de registros nuevos desde el formulario docente continúa sin inicio de sesión. Las reglas anteriores son un mínimo de compatibilidad, no sustituyen validaciones de contenido y mecanismos antispam para nuevas hojas.
 
-## 3. Comprobación
+## 3. Configurar períodos lectivos (obligatorio)
+
+Desde el panel del administrador existe la sección **Períodos lectivos**. Selecciona mes y año de inicio y fin y pulsa **Crear y activar**. También puedes activar un período anterior o desactivar el vigente. Solo se mantiene **un período activo a la vez**.
+
+Firebase guarda esos datos en `periodosHojaFinanciera`:
+
+- `periodos/{id}` contiene mes/año inicial y final, su etiqueta y la fecha de creación.
+- `activoId` identifica el único período habilitado; se elimina cuando se desactiva.
+
+El docente no visualiza ni edita el período; su formulario lo consulta en tiempo real y lo registra automáticamente en cada hoja, incluyendo el PDF. Las hojas enviadas conservan el período con el que se crearon. Si no hay período activo, el docente puede guardar un borrador pero no imprimir, descargar ni enviar.
+
+**Paso obligatorio fuera de GitHub:** actualiza manualmente las reglas de Realtime Database del proyecto `repaso-fire-d8ceb` integrando las condiciones del ejemplo de la sección 2. Publicar GitHub Pages **no cambia las reglas de Firebase**. El nodo `periodosHojaFinanciera` es público para lectura (solo nombres y fechas del período), pero las modificaciones requieren ser un administrador autorizado.
+
+La regla `.validate` de `hojasFinancieras/$id` restringe las **nuevas hojas** al período activo. Los administradores autorizados pueden revisar las hojas anteriores sin que les afecte el nuevo período. La creación sin identificación de docentes necesita además validaciones de contenido y controles contra envíos automatizados según política institucional.
+
+## 4. Comprobación
 
 - Navegador **no autorizado**: muestra el UID de autorización, **no** muestra los registros.
 - Navegador **autorizado**: entra directamente al panel de hojas.
 - Si el proyecto tiene deshabilitado **Anónimo**: aparece un mensaje que indica qué habilitar.
-- Para confirmar que el envío, la edición y el filtrado funcionan, prueba con registros controlados y verifica las reglas publicadas en Firebase Console.
+- Comprueba que sin período activo el formulario docente impida imprimir, descargar y enviar.
+- Crea y activa un período; verifica que el bloqueo desaparezca y la hoja/PDF incorporen la etiqueta automáticamente.
+- Activa un período distinto y comprueba que las hojas anteriores conservan el suyo.
+- Verifica con datos de prueba el envío, la edición y los filtros, además de las reglas publicadas en Firebase Console.
 
 Cada hoja se almacena en `hojasFinancieras/{id}` con cédula, docente, carrera, actividades, totales y estado de revisión.
