@@ -1,51 +1,73 @@
 <!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0d2f56">
-  <title>Administrador local | Hoja Financiera ITSQMET</title>
-  <style>
-    :root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#123050}
-    *{box-sizing:border-box}
-    body{margin:0;background:#edf2f8;min-height:100vh}
-    header{display:flex;align-items:center;gap:13px;background:#0d2f56;color:#fff;border-bottom:3px solid #ad2437;padding:12px 20px}
-    header img{height:42px;max-width:115px;object-fit:contain;background:white;border-radius:6px;padding:3px}
-    header strong{display:block;font-size:17px}
-    header span{display:block;font-size:12px;color:#d5e2f2}
-    main{max-width:730px;margin:8vh auto;padding:0 15px}
-    .panel{background:white;border:1px solid #d8e2ee;border-radius:15px;box-shadow:0 12px 35px #15345513;padding:25px}
-    h1{font-size:24px;margin:0 0 10px}
-    p{font-size:14px;line-height:1.6;color:#40526c}
-    .action{display:block;text-align:center;text-decoration:none;background:#0d2f56;color:white;padding:12px 14px;font-size:15px;font-weight:750;border-radius:9px;margin:14px 0}
-    .action:hover{background:#17487b}
-    .secondary{background:#eaf0f6;color:#0d2f56}
-    .secondary:hover{background:#dce7f2}
-    .notes{border-top:1px solid #dce4ee;margin-top:20px;padding-top:16px}
-    .notes strong{font-size:13px}
-    .notes p{font-size:12px;margin:5px 0}
-    .links{display:flex;flex-wrap:wrap;gap:16px;margin-top:20px}
-    .links a{font-size:12px;color:#164c82}
-  </style>
-</head>
-<body>
-  <header><img src="../assets/logo-itsqmet.jpg" alt="ITSQMET">
-    <div><strong>Hoja Financiera</strong><span>Administrador sin login</span></div>
-  </header>
-  <main><section class="panel">
-    <h1>Acceso directo al administrador</h1>
-    <p>El administrador de hojas financieras funciona en tu computadora, sin usuario, contraseña, PIN ni Firebase Authentication. Así los datos personales y de pago no quedan abiertos públicamente en GitHub Pages.</p>
-    <a class="action" href="http://127.0.0.1:8765/desktop-admin/">Abrir administrador en esta computadora</a>
-    <a class="action secondary" href="https://github.com/jeffer91/Hoja-Financiera/blob/main/desktop-admin/INSTRUCCIONES.md">Instalar administrador (una sola vez)</a>
-    <div class="notes">
-      <strong>Para entrar</strong>
-      <p>Abre primero <code>desktop-admin/iniciar-administrador.cmd</code> en Windows. Después podrás usar el botón de arriba y gestionar períodos, docentes, hojas y pagos sin ingresar credenciales.</p>
-      <p>La cuenta de servicio utilizada para conectar Firebase queda únicamente en tu computadora, no en esta página. Si el servidor local no está iniciado, el navegador indicará que no puede conectarse.</p>
-    </div>
-    <nav class="links">
-      <a href="../">Formulario docente</a>
-      <a href="https://github.com/jeffer91/Hoja-Financiera/archive/refs/heads/main.zip">Descargar aplicación completa</a>
-    </nav>
-  </section></main>
-</body>
-</html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#103756">
+<title>Administrador | Hoja Financiera ITSQMET</title>
+<link rel="stylesheet" href="dashboard.css">
+<script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head><body>
+<header>
+<a class="brand" href="../"><img src="../assets/logo-itsqmet.jpg" alt="ITSQMET"><div><strong>Hoja Financiera</strong><small>Administración y seguimiento</small></div></a>
+<nav><a href="../">Formulario docente</a></nav>
+</header>
+<main>
+<div class="heading"><div><h1>Panel de hojas financieras</h1><p class="muted">Seguimiento institucional de recepción y revisión de documentos firmados.</p></div>
+<button class="btn secondary" id="refreshBtn" type="button">Actualizar</button></div>
+<p id="statusMessage" role="status" hidden></p>
+<div class="stats">
+<div class="stat"><small>Hojas recibidas</small><strong id="kTotal">—</strong></div>
+<div class="stat"><small>Pendientes</small><strong id="kPending">—</strong></div>
+<div class="stat"><small>Observadas</small><strong id="kObserved">—</strong></div>
+<div class="stat"><small>Aprobadas</small><strong id="kApproved">—</strong></div>
+<div class="stat"><small>Total horas</small><strong id="kHours">—</strong></div>
+</div>
+<section class="card hint" id="privateHint">
+<strong>Gestión documental privada</strong>
+<p>Este panel muestra estadísticas generales sin pedirte usuario, contraseña ni instalar programas. Para revisar PDF firmados, consultar cédulas, observar y aprobar, abre tu enlace privado de administración. El enlace se configura en el servicio seguro, no aquí.</p>
+<p class="muted">Si el servidor aún no está configurado, las estadísticas permanecerán sin datos reales. No se publica ninguna credencial de Firebase.</p>
+</section>
+<div id="privatePanel" hidden>
+<section class="card">
+<div class="panel-head"><div><h2>Períodos lectivos</h2><p id="activePeriod" class="muted">Consultando período activo…</p></div></div>
+<form class="period-form" id="periodForm">
+<label>Mes de inicio<select name="startMonth" required>
+<option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option>
+<option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
+<option value="9">Septiembre</option><option value="10" selected>Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+</select></label>
+<label>Año de inicio<input type="number" name="startYear" min="2020" max="2100" value="2026" required></label>
+<label>Mes de fin<select name="endMonth" required>
+<option value="1">Enero</option><option value="2">Febrero</option><option value="3" selected>Marzo</option><option value="4">Abril</option>
+<option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
+<option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+</select></label>
+<label>Año de fin<input type="number" name="endYear" min="2020" max="2100" value="2027" required></label>
+<button class="btn" type="submit">Crear y activar</button></form>
+<div id="periodsList"></div>
+</section>
+<section class="card">
+<div class="panel-head"><div><h2>Documentos firmados</h2><p id="adminIdentity" class="muted">Gestión privada</p></div>
+<button type="button" class="btn" id="exportBtn">Exportar Excel</button></div>
+<div class="filters">
+<input id="search" placeholder="Buscar por nombre, cédula o carrera" type="search">
+<select id="stateFilter"><option value="">Todos los estados</option><option>Recibida</option><option>Observada</option><option>Aprobada</option></select>
+</div>
+<p class="muted" id="resultCount">0 hojas</p>
+<div class="table-wrap"><table><thead><tr><th>Docente</th><th>Cédula</th><th>Carrera</th><th>Período</th><th>Estado</th><th>Horas</th><th>Última actualización</th><th>PDF</th></tr></thead>
+<tbody id="sheetRows"></tbody></table></div>
+<p id="emptyState" class="muted" hidden>No hay documentos que coincidan con los filtros.</p>
+</section>
+</div>
+</main>
+<dialog id="reviewDialog">
+<div class="dialog-head"><h2 id="detailTitle">Hoja financiera</h2><button class="btn secondary" type="button" id="closeDetail">Cerrar</button></div>
+<div class="info-grid" id="detailInfo"></div>
+<h3>Documentos firmados e historial</h3>
+<div class="history" id="history"></div>
+<div id="log"></div>
+<label><strong>Observaciones para el docente</strong><textarea id="observation" rows="4" placeholder="Indica exactamente qué debe corregirse en la hoja."></textarea></label>
+<div class="actions"><button class="btn danger" type="button" id="returnBtn">Devolver con observaciones</button>
+<button class="btn success" type="button" id="approveBtn">Aprobar hoja</button></div>
+</dialog>
+<script type="module" src="dashboard.js"></script>
+</body></html>
