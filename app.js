@@ -27,6 +27,7 @@ let lookupSequence = 0;
 const validatedPages = new Set();
 let activePeriod = null;
 let periodState = 'loading';
+let submissionInProgress = false;
 
 let db = null;
 try {
@@ -138,7 +139,7 @@ function addActivity(data) {
   data = data || {};
   const frag = template.content.cloneNode(true);
   const card = frag.querySelector('.activity-card');
-  card.querySelector('.activity-date').value = data.date || today();
+  card.querySelector('.activity-date').value = data.date || defaultClassDate();
   card.querySelector('.activity-hours').value = data.hours == null ? 2 : data.hours;
   card.querySelector('.activity-notes').value = data.notes || '';
   card.querySelector('.activity-evidence').value = data.evidence || '';
@@ -427,18 +428,41 @@ function validateTeacherFields() {
   return valid;
 }
 
+function validClassDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const [y,m,d] = date.split('-').map(Number);
+  const actual = new Date(y, m-1, d);
+  if (actual.getFullYear() !== y || actual.getMonth() !== m-1 || actual.getDate() !== d) return false;
+  if (!activePeriod) return true;
+  const month = date.slice(0,7);
+  return month >= activePeriod.anioInicio + '-' + String(activePeriod.mesInicio).padStart(2,'0') &&
+    month <= activePeriod.anioFin + '-' + String(activePeriod.mesFin).padStart(2,'0');
+}
+
+function defaultClassDate() {
+  const now = today();
+  if (!activePeriod || validClassDate(now)) return now;
+  return activePeriod.anioInicio + '-' + String(activePeriod.mesInicio).padStart(2,'0') + '-01';
+}
+
+function validEvidenceUrl(value) {
+  if (!value) return true;
+  try { return ['https:', 'http:'].includes(new URL(value).protocol); }
+  catch { return false; }
+}
+
 function validateActivityCard(card) {
   const date = card.querySelector('.activity-date');
   const hours = card.querySelector('.activity-hours');
   const notes = card.querySelector('.activity-notes');
   const evidence = card.querySelector('.activity-evidence');
 
-  const badDate = !date.value || !date.checkValidity();
+  const badDate = !date.value || !date.checkValidity() || !validClassDate(date.value);
   const badHours = !hours.value.trim() || !hours.checkValidity() ||
     !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0;
   const badNotes = !notes.value.trim();
   // La evidencia es opcional; si hay un enlace, debe ser válido.
-  const badEvidence = !!evidence.value.trim() && !evidence.checkValidity();
+  const badEvidence = !!evidence.value.trim() && (!evidence.checkValidity() || !validEvidenceUrl(evidence.value.trim()));
 
   markFieldInvalid(date, badDate);
   markFieldInvalid(hours, badHours);
@@ -501,91 +525,100 @@ function fail(message, el) {
 
 
 async function submitToAdmin() {
+  if (submissionInProgress) return;
   if (!validateForm()) return;
   if (!db) {
     toast('Firebase no está disponible. No se pudo enviar la hoja.');
     return;
   }
-
-  // Valida de nuevo en Firebase: el período pudo cambiar mientras se completaba la hoja.
-  let confirmedPeriod;
-  try {
-    const snap = await get(ref(db, PERIODS_PATH));
-    confirmedPeriod = selectActivePeriod(snap.val());
-  } catch (error) {
-    console.error(error);
-    toast('No se pudo verificar el período vigente. Intenta nuevamente.');
-    return;
-  }
-  if (!confirmedPeriod) {
-    setActivePeriod(null);
-    toast('El período fue desactivado. Se canceló el envío.');
-    return;
-  }
-  if (!activePeriod || confirmedPeriod.id !== activePeriod.id) {
-    activePeriod = confirmedPeriod;
-    periodState = 'ready';
-    renderPeriodAvailability();
-    updateAll();
-    toast('Cambió el período vigente. Revisa tu hoja y vuelve a enviarla.');
-    return;
-  }
-  const rows = activities();
-  const totalHours = rows.reduce((sum, item) => sum + item.hours, 0);
-  const totalValue = rows.reduce((sum, item) => sum + item.hours * item.valueHour, 0);
-  const payload = {
-    version: 2,
-    valorHoraGestionadoPor: 'Talento Humano',
-    concepto: CONCEPT,
-    estado: 'Enviada',
-    observacionAdmin: '',
-    cedula: $('cedula').value.trim(),
-    docente: $('teacherName').value.trim(),
-    origenDocente: teacherSource === 'manual' ? 'manual' : 'firebase',
-    tituloSuperior: $('teacherTitle').value.trim(),
-    carrera: $('teacherCareer').value.trim(),
-    periodo: {
-      id: confirmedPeriod.id,
-      mesInicio: confirmedPeriod.mesInicio,
-      anioInicio: confirmedPeriod.anioInicio,
-      mesFin: confirmedPeriod.mesFin,
-      anioFin: confirmedPeriod.anioFin,
-      etiqueta: confirmedPeriod.etiqueta
-    },
-    actividades: rows,
-    totales: {
-      clases: rows.length,
-      horas: totalHours,
-      valor: Number(totalValue.toFixed(2))
-    },
-    evidencias: rows.filter(item => item.evidence).length,
-    fechaEnvio: Date.now(),
-    fechaActualizacion: Date.now(),
-    origen: 'Hoja-Financiera'
-  };
-
+  submissionInProgress = true;
   const btn = $('submitAdminBtn');
   btn.disabled = true;
-  btn.textContent = 'Enviando…';
-
+  btn.textContent = 'Verificando y enviando…';
   try {
+    const snap = await get(ref(db, PERIODS_PATH));
+    const confirmedPeriod = selectActivePeriod(snap.val());
+    if (!confirmedPeriod) {
+      setActivePeriod(null);
+      toast('No hay período vigente. El envío fue cancelado.');
+      return;
+    }
+    if (!activePeriod || confirmedPeriod.id !== activePeriod.id) {
+      activePeriod = confirmedPeriod;
+      periodState = 'ready';
+      renderPeriodAvailability();
+      updateAll();
+      toast('El período vigente cambió. Revisa tu hoja y vuelve a enviarla.');
+      return;
+    }
+    // Las fechas se verifican también con el período confirmado desde Firebase.
+    if (!validateActivityCards()) {
+      reportValidationError(2, 'Hay fechas o datos de clase que no corresponden al período activo.');
+      return;
+    }
+    const rows = activities();
+    const totalHours = rows.reduce((sum, item) => sum + item.hours, 0);
+    const payload = {
+      version: 2,
+      valorHoraGestionadoPor: 'Talento Humano',
+      concepto: CONCEPT,
+      estado: 'Enviada',
+      observacionAdmin: '',
+      cedula: $('cedula').value.trim(),
+      docente: $('teacherName').value.trim(),
+      origenDocente: teacherSource === 'manual' ? 'manual' : 'firebase',
+      tituloSuperior: $('teacherTitle').value.trim(),
+      carrera: $('teacherCareer').value.trim(),
+      periodo: {
+        id: confirmedPeriod.id,
+        mesInicio: confirmedPeriod.mesInicio,
+        anioInicio: confirmedPeriod.anioInicio,
+        mesFin: confirmedPeriod.mesFin,
+        anioFin: confirmedPeriod.anioFin,
+        etiqueta: confirmedPeriod.etiqueta
+      },
+      actividades: rows,
+      totales: {clases:rows.length, horas:totalHours, valor:0},
+      evidencias: rows.filter(item => item.evidence).length,
+      fechaEnvio: Date.now(),
+      fechaActualizacion: Date.now(),
+      origen:'Hoja-Financiera'
+    };
+    // Evita reenvíos idénticos desde este navegador, sin impedir enviar una hoja corregida.
+    const fingerprint = JSON.stringify({
+      cedula:payload.cedula, docente:payload.docente, origenDocente:payload.origenDocente,
+      titulo:payload.tituloSuperior, carrera:payload.carrera, periodo:payload.periodo.id,
+      actividades:payload.actividades
+    });
+    let previous = null;
+    try { previous = JSON.parse(localStorage.getItem('hoja-financiera-last-submission') || 'null'); }
+    catch (error) { console.warn('No se pudo leer el envío anterior.',error); }
+    if (previous?.fingerprint === fingerprint) {
+      setSubmissionNote('Esta hoja ya fue enviada',
+        'Código anterior: ' + previous.id + '. Modifica la hoja si necesitas registrar una corrección.', true);
+      toast('Esta misma hoja ya fue enviada. No se creó un duplicado.');
+      return;
+    }
     const target = push(ref(db, 'hojasFinancieras'));
     await set(target, payload);
-    localStorage.setItem('hoja-financiera-last-submission', JSON.stringify({
-      id: target.key,
-      fechaEnvio: payload.fechaEnvio,
-      cedula: payload.cedula
-    }));
-    saveDraft(false);
+    try {
+      localStorage.setItem('hoja-financiera-last-submission', JSON.stringify({
+        id:target.key, fechaEnvio:payload.fechaEnvio, cedula:payload.cedula, fingerprint
+      }));
+      saveDraft(false);
+    } catch (error) { console.warn('La hoja se envió, pero no se pudo guardar el comprobante local.',error); }
     setSubmissionNote('Hoja enviada correctamente', 'Código: ' + target.key + ' · Estado: Enviada.', true);
     toast('Hoja enviada al administrador.');
   } catch (error) {
     console.error(error);
-    setSubmissionNote('No se pudo enviar', 'Firebase rechazó la escritura. Revisa las reglas del nodo hojasFinancieras.', false);
+    setSubmissionNote('No se pudo enviar',
+      'Firebase rechazó la operación. Comprueba el período y las reglas de la base.', false);
     toast('No se pudo enviar la hoja a Firebase.');
   } finally {
-    btn.disabled = false;
+    submissionInProgress = false;
     btn.textContent = 'Enviar al administrador';
+    // Nunca reactivar un envío si se deshabilitó el período durante la operación.
+    btn.disabled = !activePeriod;
   }
 }
 
@@ -635,12 +668,14 @@ function saveDraft(showMessage) {
     teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
     activities:activities()
   };
-  localStorage.setItem(DRAFT, JSON.stringify(data));
+  try { localStorage.setItem(DRAFT, JSON.stringify(data)); }
+  catch (error) { console.warn('No se pudo guardar el borrador local.',error); if (showMessage) toast('El navegador no permitió guardar el borrador.'); return; }
   if (showMessage) toast('Borrador guardado en este dispositivo.');
 }
 
 function restoreDraft() {
-  const raw = localStorage.getItem(DRAFT);
+  let raw = null;
+  try { raw = localStorage.getItem(DRAFT); } catch (error) { console.warn(error); return false; }
   if (!raw) return false;
   try {
     const d = JSON.parse(raw);
@@ -666,7 +701,7 @@ function restoreDraft() {
 
 function clearForm() {
   if (!confirm('¿Deseas limpiar la hoja actual?')) return;
-  localStorage.removeItem(DRAFT);
+  try { localStorage.removeItem(DRAFT); } catch (error) { console.warn(error); }
   clearAllValidation();
   form.reset();
   lookupSequence++;
