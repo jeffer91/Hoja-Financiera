@@ -25,6 +25,18 @@ El UID no es una contraseña y no debe tratarse como un secreto. La seguridad de
 
 **Importante:** cada navegador o dispositivo nuevo necesita autorización propia. Borrar los datos del navegador puede generar otro UID. Para revocar un navegador, cambia `activo` a `false` o elimina su nodo. El navegador autorizado no debe compartirse con personas no autorizadas.
 
+### Si aparece «No se pudo iniciar el acceso automático»
+
+El panel ahora muestra el **código real del error** y permite reintentar sin correo ni contraseña.
+
+- `auth/operation-not-allowed`, `auth/admin-restricted-operation` o `auth/configuration-not-found`: habilita **Authentication → Sign-in method → Anónimo** en el proyecto `repaso-fire-d8ceb`.
+- `auth/network-request-failed`: revisa conexión, bloqueadores y restricciones de red.
+- `auth/app-not-authorized` o `auth/unauthorized-domain`: comprueba las restricciones de API Key y dominios en Firebase.
+- Si muestra un **UID**, Firebase ya logró autenticar el navegador; solo falta añadir `administradores/UID/activo = true` con valor booleano en Realtime Database y pulsar **Reintentar**.
+- Si las reglas impiden la comprobación de permisos, restaura únicamente el acceso del UID autenticado, nunca abras todos los registros al público.
+
+El acceso anónimo y la autorización de UID son operaciones **distintas**. Publicar cambios en GitHub Pages no activa Authentication ni publica las reglas de Realtime Database.
+
 ## 2. Reglas de Firebase Realtime Database
 
 Integra estas condiciones en las reglas existentes sin eliminar reglas de otros sistemas que usan el proyecto. Estas reglas distinguen la creación de hojas por docentes sin cuenta de la administración protegida.
