@@ -409,3 +409,18 @@ body.pdf-export .pdf-page { box-shadow: none !important; margin: 0 !important; }
   .final-actions .btn { width:100%; }
   .final-actions #submitAdminBtn { grid-column:1 / -1; }
 }
+
+
+/* Resaltar los campos incorrectos después de intentar continuar o enviar. */
+@media screen {
+  .form-panel .is-invalid,
+  .form-panel .is-invalid:focus,
+  .form-panel input[readonly].is-invalid {
+    border: 2px solid #b42318 !important;
+    background: #fff1f0 !important;
+    box-shadow: 0 0 0 2px rgba(180, 35, 24, .12) !important;
+  }
+  .form-panel label.label-error { color: #b42318; }
+  .form-panel .activity-card.has-errors { border-color: #d9584e; }
+  .form-panel .activity-card.has-errors .activity-card-head { background: #fff0ef; }
+}
