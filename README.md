@@ -1,42 +1,58 @@
-# Hoja Financiera
+# Hoja Financiera ITSQMET
 
-Aplicación web para generar hojas financieras institucionales de **Clases de refuerzo por carrera**.
+Aplicación web institucional para registrar clases de refuerzo y recibir **PDF financieros firmados**.
 
-## Funciones
+## Enlaces
 
-- Control exclusivo del período lectivo desde el administrador: crea, activa o desactiva períodos en Firebase; el docente utiliza el período activo automáticamente sin poder seleccionarlo.
-- Consulta automática del nombre del docente mediante cédula en Firebase Realtime Database (`patrociniosGenerados/{cedula}`).
-- Alta manual de docentes nuevos si no constan en Firebase o falla la consulta. El nombre, el título y la carrera pueden ingresarse manualmente y enviarse en la hoja, marcada con `origenDocente: manual` para revisión administrativa. No modifica el padrón `patrociniosGenerados`.
-- Registro de título superior y carrera detectada.
-- Registro de clases con fecha, valor hora, horas trabajadas, observaciones y evidencia opcional.
-- Cálculo automático de horas y valor estimado.
-- Vista previa institucional en tiempo real.
-- Página adicional de evidencias cuando existen enlaces de grabación.
-- Descarga en PDF e impresión A4.
-- Borrador local en el navegador.
+- [Docentes](https://jeffer91.github.io/Hoja-Financiera/)
+- [Administrador web](https://jeffer91.github.io/Hoja-Financiera/administrador/)
 
-## GitHub Pages
+No requiere instalación, servidor local, PIN ni Firebase Authentication. El panel público muestra **solo estadísticas generales**; la revisión de documentos y las modificaciones usan un **enlace privado de administrador** que funciona como credencial y que no debe compartirse.
 
-El repositorio incluye un workflow para desplegar el sitio estático con GitHub Pages mediante GitHub Actions.
+## Funcionamiento docente
 
-- Docentes: `https://jeffer91.github.io/Hoja-Financiera/`
-- Administrador: `https://jeffer91.github.io/Hoja-Financiera/administrador/`
+1. Ingresa su cédula. Si no consta en Firebase, registra datos manualmente para verificación.
+2. Registra clases, horas y enlaces de grabación. El valor por hora permanece vacío.
+3. Descarga un PDF A4 con primera página de horas, segunda página de evidencias y tres espacios de firma (Docente, Coordinación de Titulación, Vicerrectorado). El documento puede ocupar páginas adicionales.
+4. Firma el PDF por el método que prefiera y selecciona **Subir PDF firmado**.
+5. **Solo cuando la carga finaliza correctamente** se registra el documento como `Recibida`. El PDF sin firma no se almacena como archivo.
+6. Con la cédula puede **consultar exclusivamente el estado**. Para recuperar y corregir los datos o subir un nuevo firmado después de una devolución se necesita el **enlace privado de esa hoja**, entregado al docente al subir el archivo.
+7. Al aprobar la hoja, el docente ya no puede reemplazar el PDF. Los documentos firmados anteriores permanecen en el historial.
 
-El formulario docente continúa en GitHub Pages. El administrador completo ahora se ejecuta localmente, sin login ni Firebase Authentication, con un puente privado que conecta a Firebase mediante una cuenta de servicio guardada fuera del repositorio. Para instalarlo, consulta `desktop-admin/INSTRUCCIONES.md`.
+## Administrador
 
-## Firebase
+- Panel general público sin datos personales.
+- Gestión privada por enlace personal de acceso: pendientes, filtros, descarga de PDF firmados, historial, devolución con observaciones, aprobación, exportación Excel y gestión de períodos.
+- Solo una configuración de período activa a la vez. Las correcciones de hojas devueltas conservan el período original.
+- Los documentos privados no pueden descargarse con solo conocer el número de cédula.
 
-La aplicación utiliza el proyecto `Repaso-Fire` y consulta el nodo `patrociniosGenerados` por cédula. La seguridad de los datos depende de las reglas configuradas en Firebase Realtime Database.
+## Infraestructura
 
-## Configuración de períodos
+- Frontend estático: GitHub Pages.
+- API con acceso privado a Firebase: [Render — hoja-financiera-api](https://dashboard.render.com/web/srv-dbd7i7uq1p3s73cpv3l0).
+- Datos y estado de las hojas: Firebase Realtime Database, proyecto `repaso-fire-d8ceb`.
+- Archivos PDF firmados: Firebase Storage, bucket `repaso-fire-d8ceb.firebasestorage.app`.
+- Backend: `backend/server.mjs`.
 
-Es necesario integrar y publicar en Firebase Realtime Database las reglas del nodo `periodosHojaFinanciera` (lectura pública de fechas, escritura de administradores) y la validación de las nuevas hojas indicadas en `FIREBASE-ADMIN.md`. Cuando no existe un período activo, el formulario permite guardar borradores, pero bloquea imprimir, descargar PDF y enviar.
+## Configuración obligatoria del servicio Render
 
-## Administrador directo, sin login
+**El backend no puede leer Firebase ni guardar documentos hasta que la credencial privada esté configurada.** Realiza una sola vez la configuración siguiente:
 
-1. Descarga el repositorio y consulta [las instrucciones de Windows](desktop-admin/INSTRUCCIONES.md).
-2. Guarda la credencial privada de servicio de Firebase fuera del repositorio, en `%APPDATA%\HojaFinanciera\service-account.json`. **No la compartas ni la subas a GitHub.**
-3. Ejecuta `desktop-admin/iniciar-administrador.cmd`. El panel se abre en `http://127.0.0.1:8765/desktop-admin/`, sin usuario, PIN ni Firebase Authentication.
-4. El [enlace público del administrador](https://jeffer91.github.io/Hoja-Financiera/administrador/) ahora dirige al panel local y muestra instrucciones, sin exponer la base financiera.
+1. En [Firebase Console → Cuentas de servicio](https://console.firebase.google.com/project/repaso-fire-d8ceb/settings/serviceaccounts/adminsdk), genera una clave privada para una cuenta de servicio autorizada.
+2. En [Render → Environment](https://dashboard.render.com/web/srv-dbd7i7uq1p3s73cpv3l0/env) crea `FIREBASE_SERVICE_ACCOUNT_JSON` con el **contenido JSON completo** de esa clave (como variable secreta del servidor).
+3. Confirma que Firebase Storage esté habilitado en ese proyecto y que el bucket configurado exista.
+4. Render desplegará de nuevo el servicio. Abre `https://hoja-financiera-api.onrender.com/api/health`: `ok:true` verifica la inicialización, **no** confirma por sí sola permisos completos ni una carga de prueba.
 
-GitHub Pages no puede ofrecer lectura y escritura privadas sobre la base financiera si se retira todo mecanismo de autorización. No se han publicado reglas abiertas para cédulas ni datos de pago. La credencial técnica del servidor local es necesaria para mantener la conexión segura; no requiere que el usuario inicie sesión en la aplicación.
+**No publiques ni compartas la clave JSON ni la copies al frontend o a GitHub.**
+
+`ADMIN_ACCESS_TOKEN` ya está configurado en el servidor Render; debe tener 32 caracteres o más. Se usa desde un enlace privado `/administrador/#clave=TOKEN` y permite acceso administrativo. Si el enlace se filtra, cambia el token de Render y genera un enlace nuevo.
+
+## Pruebas
+
+La acción de GitHub Pages ejecuta `node --test tests/audit.test.cjs` antes de publicar. Comprueba la estructura del formulario, las rutas de la API, validación básica de datos, estados, página de administración y protección de documentos. Estas pruebas automatizadas **no equivalen a** una prueba real con Firebase Storage; esa verificación requiere la credencial privada configurada.
+
+## Seguridad
+
+La cédula no es una contraseña. La consulta por cédula únicamente devuelve estados y fechas. El servidor valida el enlace privado para cambios y descargas. La URL privada de administración debe guardarse como una contraseña, aunque no muestre formulario de inicio de sesión.
+
+Las reglas actuales de Firebase Realtime Database no se sustituyen ni se publican como acceso abierto. El servicio Render usa credenciales privadas del lado servidor para realizar las operaciones permitidas.
