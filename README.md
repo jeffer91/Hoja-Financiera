@@ -21,7 +21,7 @@ El repositorio incluye un workflow para desplegar el sitio estático con GitHub 
 - Docentes: `https://jeffer91.github.io/Hoja-Financiera/`
 - Administrador: `https://jeffer91.github.io/Hoja-Financiera/administrador/`
 
-El formulario docente puede enviar hojas terminadas a `hojasFinancieras` en Firebase. El panel administrativo permite revisar, filtrar, editar, observar, aprobar, imprimir y exportar a Excel. La configuración segura del acceso está documentada en `FIREBASE-ADMIN.md`.
+El formulario docente puede enviar hojas terminadas a `hojasFinancieras` en Firebase. El panel administrativo permite revisar, filtrar, editar, observar, aprobar, imprimir y exportar a Excel. **No hay formulario de login**: el navegador se identifica automáticamente mediante Firebase Authentication Anónimo, pero debe autorizarse una vez en Realtime Database para proteger las hojas. Sigue las instrucciones de `FIREBASE-ADMIN.md`.
 
 ## Firebase
 
