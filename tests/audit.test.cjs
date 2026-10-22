@@ -140,6 +140,9 @@ test('Reglas documentadas niegan lectura pública de hojas y escritura de perío
   const rules=JSON.parse(match[1]);
   assert.notEqual(rules.hojasFinancieras['.read'],true);
   assert.notEqual(rules.periodosHojaFinanciera['.write'],true);
+  const validation = rules.hojasFinancieras['$id']['.validate'];
+  assert.ok(validation.includes("newData.child('estado').val() === 'Enviada'"));
+  assert.ok(validation.includes("newData.child('totales').child('valor').val() === 0"));
 });
 test('El despliegue está condicionado a la ejecución de las pruebas',()=>{
   assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
