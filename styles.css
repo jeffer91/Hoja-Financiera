@@ -424,3 +424,7 @@ body.pdf-export .pdf-page { box-shadow: none !important; margin: 0 !important; }
   .form-panel .activity-card.has-errors { border-color: #d9584e; }
   .form-panel .activity-card.has-errors .activity-card-head { background: #fff0ef; }
 }
+
+/* El docente no modifica períodos; solo se muestra una advertencia si falta uno. */
+.period-warning{color:#8a301f;background:#fff2ee;border:1px solid #e7b4a7;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:700;margin:0 0 10px}
+.period-warning[hidden]{display:none !important}
