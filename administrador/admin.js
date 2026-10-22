@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import { getDatabase, ref, get, onValue, update } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyANtWmjXdlHkf-LO4t2gtpyymmjeEr2emI',
@@ -23,25 +23,45 @@ let currentId = null;
 let stopListening = null;
 
 bind();
+showAccessStatus('Verificando acceso automático…');
+let signingIn = false;
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    showLogin();
+    if (signingIn) return;
+    signingIn = true;
+    showAccessStatus('Conectando de forma segura con Firebase…');
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error(error);
+      const message = error.code === 'auth/operation-not-allowed'
+        ? 'Debes habilitar el proveedor Anónimo en Firebase Authentication para utilizar el acceso sin contraseña.'
+        : 'No se pudo iniciar el acceso automático. Revisa la conexión y la configuración de Firebase.';
+      showAccessStatus(message);
+    } finally {
+      signingIn = false;
+    }
     return;
   }
+
   const allowed = await isAdministrator(user.uid);
+  if (allowed === null) {
+    showAccessStatus('Firebase no permitió comprobar los permisos. Verifica las reglas de administradores en Realtime Database.', user.uid);
+    return;
+  }
   if (!allowed) {
-    $('loginMessage').textContent = 'La cuenta inició sesión, pero no está autorizada como administrador.';
-    await signOut(auth);
+    showAccessStatus('Este navegador aún no tiene autorización administrativa. Registra su identificador en Firebase y actualiza la página.', user.uid);
     return;
   }
   showDashboard(user);
   listenSheets();
+}, error => {
+  console.error(error);
+  showAccessStatus('No se pudo verificar el acceso automático con Firebase.');
 });
 
 function bind() {
-  $('loginForm').addEventListener('submit', login);
-  $('logoutBtn').addEventListener('click', () => signOut(auth));
   $('searchFilter').addEventListener('input', applyFilters);
   $('statusFilter').addEventListener('change', applyFilters);
   $('periodFilter').addEventListener('change', applyFilters);
@@ -55,48 +75,36 @@ function bind() {
   $('printSheetBtn').addEventListener('click', printCurrent);
 }
 
-async function login(event) {
-  event.preventDefault();
-  const btn = $('loginBtn');
-  btn.disabled = true;
-  btn.textContent = 'Ingresando…';
-  $('loginMessage').textContent = '';
-  try {
-    await signInWithEmailAndPassword(auth, $('email').value.trim(), $('password').value);
-  } catch (error) {
-    console.error(error);
-    $('loginMessage').textContent = authMessage(error.code);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Ingresar';
-  }
-}
-
 async function isAdministrator(uid) {
   try {
     const snap = await get(ref(db, 'administradores/' + uid));
     if (!snap.exists()) return false;
     const value = snap.val();
-    return value === true || value?.activo === true || value?.role === 'admin';
+    // Debe coincidir con las reglas de Realtime Database: solo activo === true.
+    return value !== null && typeof value === 'object' && value.activo === true;
   } catch (error) {
     console.error(error);
-    $('loginMessage').textContent = 'No fue posible verificar permisos en Firebase.';
-    return false;
+    return null;
   }
 }
 
-function showLogin() {
+function showAccessStatus(message, uid = '') {
   if (stopListening) { stopListening(); stopListening = null; }
-  $('loginView').hidden = false;
+  records = [];
+  filtered = [];
+  currentId = null;
+  $('accessView').hidden = false;
   $('dashboardView').hidden = true;
-  $('logoutBtn').hidden = true;
+  $('accessMessage').textContent = message;
+  $('accessUid').textContent = uid ? 'ID de este navegador: ' + uid : '';
+  $('accessUid').hidden = !uid;
+  if ($('sheetDialog').open) $('sheetDialog').close();
 }
 
 function showDashboard(user) {
-  $('loginView').hidden = true;
+  $('accessView').hidden = true;
   $('dashboardView').hidden = false;
-  $('logoutBtn').hidden = false;
-  $('adminIdentity').textContent = user.email || 'Administrador autenticado';
+  $('adminIdentity').textContent = user.email || 'Navegador autorizado · Acceso automático';
 }
 
 function listenSheets() {
@@ -413,12 +421,6 @@ function formatDateTime(ms) {
 function slug(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
 function csvValue(v) { return '"' + String(v ?? '').replace(/"/g,'""') + '"'; }
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function authMessage(code) {
-  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') return 'Correo o contraseña incorrectos.';
-  if (code === 'auth/operation-not-allowed') return 'Debes habilitar Email/Password en Firebase Authentication.';
-  if (code === 'auth/too-many-requests') return 'Demasiados intentos. Intenta nuevamente más tarde.';
-  return 'No se pudo iniciar sesión. Revisa Firebase Authentication.';
-}
 function toast(text) {
   const el = $('toast');
   el.textContent = text;
