@@ -1,4 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {apiRequest} from './api-config.js';
 import { getDatabase, ref, get, push, set, onValue } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
 const firebaseConfig = {
@@ -28,6 +29,8 @@ const validatedPages = new Set();
 let activePeriod = null;
 let periodState = 'loading';
 let submissionInProgress = false;
+const PRIVATE_SHEETS_KEY = 'hf-private-sheet-links-v1';
+let correctionTarget = null;
 
 let db = null;
 try {
@@ -125,6 +128,11 @@ function bind() {
   $('saveDraftBtn').addEventListener('click', () => saveDraft(true));
   $('printBtn').addEventListener('click', () => { if (validateForm()) window.print(); });
   $('submitAdminBtn').addEventListener('click', submitToAdmin);
+  $('statusLookupBtn').addEventListener('click', consultStatus);
+  $('signedPdfFile').addEventListener('change', () => {
+    const file=$('signedPdfFile').files[0];
+    $('signedFileStatus').textContent=file?file.name+' · '+Math.round(file.size/1024)+' KB':'Todavía no has seleccionado el PDF firmado.';
+  });
   $('clearBtn').addEventListener('click', clearForm);
 
   document.querySelectorAll('[data-next-page]').forEach(btn => {
@@ -209,7 +217,7 @@ function renderPreview(rows, totalHours) {
   });
 
   const ev = rows.filter(r => r.evidence);
-  $('evidencePage').hidden = ev.length === 0;
+  $('evidencePage').hidden = false;
   $('evName').textContent = $('teacherName').value.trim() || '—';
   $('evCareer').textContent = $('teacherCareer').value.trim() || '—';
   $('evPeriod').textContent = period || '—';
@@ -236,7 +244,11 @@ function addPair(grid, label, value, url) {
   a.className = 'label'; a.textContent = label;
   const b = document.createElement('div');
   if (url) b.className = 'evidence-url';
-  b.textContent = value;
+  if(url && /^https:\/\//i.test(value)) {
+    const link=document.createElement('a');link.href=value;link.textContent=value;
+    link.target='_blank';link.rel='noopener noreferrer';link.style.overflowWrap='anywhere';
+    b.appendChild(link);
+  } else b.textContent=value;
   grid.append(a, b);
 }
 
@@ -524,101 +536,124 @@ function fail(message, el) {
 }
 
 
-async function submitToAdmin() {
-  if (submissionInProgress) return;
-  if (!validateForm()) return;
-  if (!db) {
-    toast('Firebase no está disponible. No se pudo enviar la hoja.');
-    return;
-  }
-  submissionInProgress = true;
-  const btn = $('submitAdminBtn');
-  btn.disabled = true;
-  btn.textContent = 'Verificando y enviando…';
+function privateSheets() {
+  try{return JSON.parse(localStorage.getItem(PRIVATE_SHEETS_KEY)||'{}');}catch{return {};}
+}
+function savePrivateSheet(id,cedula,capability) {
+  try{
+    const all=privateSheets();
+    all[id]={cedula,capability};
+    localStorage.setItem(PRIVATE_SHEETS_KEY,JSON.stringify(all));
+  }catch(error){console.warn('No se guardó el enlace privado:',error);}
+}
+function sheetCapability(id) {
+  const all=privateSheets();
+  const query=new URLSearchParams(location.search);
+  if(query.get('hoja')===id&&query.get('clave'))return query.get('clave');
+  return all[id]?.capability||'';
+}
+function readSignedPdf(file) {
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('No fue posible leer el PDF seleccionado'));
+    reader.onload=()=>resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+function submissionPayload() {
+  const rows=activities();
+  return {
+    cedula:$('cedula').value.trim(),
+    docente:$('teacherName').value.trim(),
+    tituloSuperior:$('teacherTitle').value.trim(),
+    carrera:$('teacherCareer').value.trim(),
+    origenDocente:teacherSource==='manual'?'manual':'firebase',
+    actividades:rows
+  };
+}
+async function consultStatus() {
+  const cedula=$('cedula').value.replace(/\D/g,'');
+  if(!/^\d{10}$/.test(cedula)){toast('Ingresa tu cédula de 10 dígitos.');return;}
+  const box=$('statusResults');
+  box.hidden=false;
+  box.textContent='Buscando hojas registradas…';
   try {
-    const snap = await get(ref(db, PERIODS_PATH));
-    const confirmedPeriod = selectActivePeriod(snap.val());
-    if (!confirmedPeriod) {
-      setActivePeriod(null);
-      toast('No hay período vigente. El envío fue cancelado.');
+    const result=await apiRequest('/api/status?cedula='+encodeURIComponent(cedula));
+    box.replaceChildren();
+    if(!result.hojas.length){
+      box.textContent='No existen PDF firmados recibidos para esta cédula.';
+      correctionTarget=null;
       return;
     }
-    if (!activePeriod || confirmedPeriod.id !== activePeriod.id) {
-      activePeriod = confirmedPeriod;
-      periodState = 'ready';
-      renderPeriodAvailability();
-      updateAll();
-      toast('El período vigente cambió. Revisa tu hoja y vuelve a enviarla.');
-      return;
+    for(const h of result.hojas) {
+      const card=document.createElement('div');
+      card.style.cssText='border-bottom:1px solid #dce5ee;padding:8px 0';
+      const line=document.createElement('strong');line.textContent=h.periodo+' · '+h.estado;
+      card.append(line);
+      if(h.estado==='Observada') {
+        const cap=sheetCapability(h.id);
+        if(cap) {
+          const btn=document.createElement('button');btn.type='button';btn.className='btn btn-secondary';
+          btn.style.margin='6px 0 0';
+          btn.textContent='Preparar corrección de esta hoja';
+          btn.addEventListener('click',()=>{
+            correctionTarget={id:h.id,capability:cap};
+            goToPage(2,false);
+            toast('Corrige la hoja, descarga un nuevo PDF y súbelo firmado.');
+          });
+          card.append(document.createElement('br'),btn);
+        } else {
+          const p=document.createElement('small');
+          p.textContent='Para corregirla necesitas el enlace privado que recibiste al subir el PDF.';
+          card.append(document.createElement('br'),p);
+        }
+      }
+      box.append(card);
     }
-    // Las fechas se verifican también con el período confirmado desde Firebase.
-    if (!validateActivityCards()) {
-      reportValidationError(2, 'Hay fechas o datos de clase que no corresponden al período activo.');
-      return;
+  } catch(e){box.textContent='No se pudo consultar el estado: '+e.message;}
+}
+async function submitToAdmin() {
+  if(submissionInProgress)return;
+  if(!validateForm())return;
+  const file=$('signedPdfFile').files?.[0];
+  if(!file)return fail('Selecciona el PDF que ya firmaste.', $('signedPdfFile'));
+  if(file.size>10*1024*1024||file.size<100||!file.name.toLowerCase().endsWith('.pdf'))
+    return fail('Solo se permiten archivos PDF de hasta 10 MB.', $('signedPdfFile'));
+  submissionInProgress=true;
+  const btn=$('submitAdminBtn');
+  btn.disabled=true;btn.textContent='Subiendo PDF firmado…';
+  try {
+    const pdf=await readSignedPdf(file);
+    const hoja=submissionPayload();
+    let result;
+    if(correctionTarget) {
+      result=await apiRequest('/api/revise',{
+        method:'POST',
+        data:{id:correctionTarget.id,capability:correctionTarget.capability,hoja,pdf}
+      });
+      correctionTarget=null;
+    } else {
+      result=await apiRequest('/api/submit',{method:'POST',data:{hoja,pdf}});
+      savePrivateSheet(result.id,hoja.cedula,result.capability);
     }
-    const rows = activities();
-    const totalHours = rows.reduce((sum, item) => sum + item.hours, 0);
-    const payload = {
-      version: 2,
-      valorHoraGestionadoPor: 'Talento Humano',
-      concepto: CONCEPT,
-      estado: 'Enviada',
-      observacionAdmin: '',
-      cedula: $('cedula').value.trim(),
-      docente: $('teacherName').value.trim(),
-      origenDocente: teacherSource === 'manual' ? 'manual' : 'firebase',
-      tituloSuperior: $('teacherTitle').value.trim(),
-      carrera: $('teacherCareer').value.trim(),
-      periodo: {
-        id: confirmedPeriod.id,
-        mesInicio: confirmedPeriod.mesInicio,
-        anioInicio: confirmedPeriod.anioInicio,
-        mesFin: confirmedPeriod.mesFin,
-        anioFin: confirmedPeriod.anioFin,
-        etiqueta: confirmedPeriod.etiqueta
-      },
-      actividades: rows,
-      totales: {clases:rows.length, horas:totalHours, valor:0},
-      evidencias: rows.filter(item => item.evidence).length,
-      fechaEnvio: Date.now(),
-      fechaActualizacion: Date.now(),
-      origen:'Hoja-Financiera'
-    };
-    // Evita reenvíos idénticos desde este navegador, sin impedir enviar una hoja corregida.
-    const fingerprint = JSON.stringify({
-      cedula:payload.cedula, docente:payload.docente, origenDocente:payload.origenDocente,
-      titulo:payload.tituloSuperior, carrera:payload.carrera, periodo:payload.periodo.id,
-      actividades:payload.actividades
-    });
-    let previous = null;
-    try { previous = JSON.parse(localStorage.getItem('hoja-financiera-last-submission') || 'null'); }
-    catch (error) { console.warn('No se pudo leer el envío anterior.',error); }
-    if (previous?.fingerprint === fingerprint) {
-      setSubmissionNote('Esta hoja ya fue enviada',
-        'Código anterior: ' + previous.id + '. Modifica la hoja si necesitas registrar una corrección.', true);
-      toast('Esta misma hoja ya fue enviada. No se creó un duplicado.');
-      return;
-    }
-    const target = push(ref(db, 'hojasFinancieras'));
-    await set(target, payload);
-    try {
-      localStorage.setItem('hoja-financiera-last-submission', JSON.stringify({
-        id:target.key, fechaEnvio:payload.fechaEnvio, cedula:payload.cedula, fingerprint
-      }));
-      saveDraft(false);
-    } catch (error) { console.warn('La hoja se envió, pero no se pudo guardar el comprobante local.',error); }
-    setSubmissionNote('Hoja enviada correctamente', 'Código: ' + target.key + ' · Estado: Enviada.', true);
-    toast('Hoja enviada al administrador.');
-  } catch (error) {
-    console.error(error);
-    setSubmissionNote('No se pudo enviar',
-      'Firebase rechazó la operación. Comprueba el período y las reglas de la base.', false);
-    toast('No se pudo enviar la hoja a Firebase.');
+    $('signedPdfFile').value='';
+    $('signedFileStatus').textContent='Documento firmado recibido correctamente.';
+    setSubmissionNote('PDF firmado recibido','Hoja: '+result.id+' · Estado: '+result.estado+'. Conserva el enlace privado de tu hoja.',true);
+    const link=document.createElement('a');
+    link.href=location.origin+location.pathname+'?hoja='+encodeURIComponent(result.id)+'&clave='+encodeURIComponent(result.capability||sheetCapability(result.id));
+    link.textContent='Guardar enlace privado de la hoja';
+    link.style.display='block';link.style.marginTop='7px';
+    $('submissionNote').append(link);
+    toast('PDF firmado cargado y registrado.');
+    saveDraft(false);
+  } catch(e) {
+    console.error(e);
+    setSubmissionNote('No se recibió el archivo firmado',e.message,false);
+    toast('Error al subir el PDF: '+e.message);
   } finally {
-    submissionInProgress = false;
-    btn.textContent = 'Enviar al administrador';
-    // Nunca reactivar un envío si se deshabilitó el período durante la operación.
-    btn.disabled = !activePeriod;
+    submissionInProgress=false;
+    btn.disabled=!activePeriod;
+    btn.textContent='Subir PDF firmado';
   }
 }
 
