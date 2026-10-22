@@ -145,7 +145,7 @@ async function revise(req,res) {
   const node=db.ref('hojasFinancieras/'+id);
   const snap=await node.get(),old=snap.val();
   if(!old)return error(res,404,'Hoja inexistente');
-  if(!secureEqual(input.capability,old.capabilityHash)&&hash(input.capability||'')!==old.capabilityHash)
+  if(typeof input.capability!=='string'||hash(input.capability)!==old.capabilityHash)
     return error(res,403,'Se requiere el enlace privado de esta hoja');
   if(old.estado!==STATES.observed)return error(res,409,'Solo se puede corregir una hoja devuelta');
   const sheet=verifySheet(input.hoja,old.periodo);
@@ -197,6 +197,18 @@ async function changeAdminPeriod(req,res) {
   },undefined,false);
   reply(res,200,{ok:result.committed,activoId:result.snapshot.val()?.activoId||null});
 }
+async function privateSheet(req,res,url) {
+  const id=url.searchParams.get('id')||'';
+  if(!/^[-A-Za-z0-9_]{12,128}$/.test(id))return error(res,400,'Identificador inválido');
+  const doc=(await db.ref('hojasFinancieras/'+id).get()).val();
+  if(!doc)return error(res,404,'La hoja no existe');
+  const token=req.headers['x-sheet-capability'];
+  if(typeof token!=='string'||hash(token)!==doc.capabilityHash)
+    return error(res,403,'Enlace privado de la hoja inválido');
+  reply(res,200,{id,estado:doc.estado,observacionAdmin:doc.observacionAdmin||'',
+    cedula:doc.cedula,docente:doc.docente,tituloSuperior:doc.tituloSuperior,carrera:doc.carrera,
+    origenDocente:doc.origenDocente,actividades:doc.actividades,periodo:doc.periodo});
+}
 async function stats(res) {
   const snap=await db.ref('hojasFinancieras').get();
   const values=Object.values(snap.val()||{});
@@ -244,7 +256,7 @@ function cors(req,res) {
   if(origin && origin!==APP_ORIGIN)return false;
   if(origin)res.setHeader('Access-Control-Allow-Origin',origin);
   res.setHeader('Vary','Origin');
-  res.setHeader('Access-Control-Allow-Headers','Content-Type,X-Admin-Capability');
+  res.setHeader('Access-Control-Allow-Headers','Content-Type,X-Admin-Capability,X-Sheet-Capability');
   res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
   return true;
 }
@@ -260,6 +272,7 @@ export async function handler(req,res) {
     if(req.method==='GET'&&url.pathname==='/api/admin/stats')return await stats(res);
     if(req.method==='POST'&&url.pathname==='/api/submit')return await submit(req,res);
     if(req.method==='POST'&&url.pathname==='/api/revise')return await revise(req,res);
+    if(req.method==='GET'&&url.pathname==='/api/private/sheet')return await privateSheet(req,res,url);
     if(url.pathname.startsWith('/api/admin/')) {
       if(!adminAuthorized(req))return error(res,403,'Usa tu enlace privado de administración');
       if(req.method==='GET'&&url.pathname==='/api/admin/sheets')return await sheets(res);
