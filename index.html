@@ -63,6 +63,8 @@
                   <button type="button" class="btn btn-secondary" id="lookupBtn">Buscar</button>
                 </div>
                 <small id="lookupMessage" class="helper" role="status" aria-live="polite"></small>
+                <button type="button" class="btn btn-secondary" id="statusLookupBtn" style="margin-top:8px;">Consultar estado de mis hojas</button>
+                <div id="statusResults" class="submission-note" hidden aria-live="polite" style="margin-top:9px;"></div>
               </label>
               <label>Apellidos y nombres
                 <input id="teacherName" placeholder="Automático o escribe un docente nuevo" required readonly />
@@ -114,7 +116,7 @@
           <section class="form-section first-section">
             <div class="section-title">
               <span class="step">5</span>
-              <div><h2>Resumen</h2><p>Confirma los datos antes de enviar.</p></div>
+              <div><h2>Resumen</h2><p>Confirma tus datos, descarga el PDF y después súbelo firmado.</p></div>
             </div>
 
             <div class="review-card">
@@ -128,9 +130,17 @@
               <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
             </section>
 
+            <section class="submission-note" aria-labelledby="signHeading" style="margin-bottom:12px;">
+              <strong id="signHeading">Proceso de firma y entrega</strong>
+              <span>1. Descarga el PDF institucional sin firma. 2. Fírmalo de la manera que prefieras. 3. Selecciona y sube el PDF firmado. Solo entonces quedará recibido.</span>
+              <label style="display:block;margin-top:12px;font-weight:700;color:#153d5e">Seleccionar PDF firmado (máximo 10 MB)
+                <input type="file" id="signedPdfFile" accept=".pdf,application/pdf" style="width:100%;margin-top:6px;" />
+              </label>
+              <small id="signedFileStatus" role="status">Todavía no has seleccionado el documento firmado.</small>
+            </section>
             <div class="submission-note" id="submissionNote">
-              <strong>Listo para enviar</strong>
-              <span>El valor hora queda pendiente para que lo complete Talento Humano.</span>
+              <strong>Listo para generar el PDF</strong>
+              <span>El valor por hora permanece vacío. El registro se recibirá cuando subas el PDF firmado.</span>
             </div>
           </section>
 
@@ -140,7 +150,7 @@
               <button type="button" class="btn btn-ghost" id="saveDraftBtn">Guardar borrador</button>
               <button type="button" class="btn btn-secondary" id="printBtn">Imprimir</button>
               <button type="submit" class="btn btn-secondary" id="pdfBtn">Descargar PDF</button>
-              <button type="button" class="btn btn-primary" id="submitAdminBtn">Enviar al administrador</button>
+              <button type="button" class="btn btn-primary" id="submitAdminBtn">Subir PDF firmado</button>
             </div>
           </div>
         </section>
