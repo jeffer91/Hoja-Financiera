@@ -25,11 +25,18 @@
         <p class="eyebrow">Acceso automático</p>
         <h1>Administrador</h1>
         <p class="intro" id="accessMessage">Verificando si este navegador está autorizado…</p>
-        <p class="access-uid" id="accessUid" hidden></p>
-        <div class="setup-note">
-          <strong>Sin usuario ni contraseña</strong>
-          <span>El acceso se autoriza una sola vez por navegador en Firebase. Si aparece un identificador arriba, agrégalo en <code>administradores/UID/activo = true</code> desde Firebase Console y luego actualiza esta página. Consulta <code>FIREBASE-ADMIN.md</code> en el repositorio.</span>
+        <p id="accessErrorCode" class="access-code" hidden></p>
+        <div id="accessHelp" class="setup-note" hidden>
+          <strong id="accessHelpTitle">Configuración de Firebase</strong>
+          <span id="accessHelpDetail"></span>
+          <a class="access-help-link" href="https://console.firebase.google.com/project/repaso-fire-d8ceb/authentication/providers" target="_blank" rel="noopener noreferrer">Abrir Authentication en Firebase</a>
         </div>
+        <p class="access-uid" id="accessUid" hidden></p>
+        <div class="access-actions">
+          <button type="button" class="btn primary" id="retryAccessBtn">Reintentar conexión</button>
+          <button type="button" class="btn secondary" id="copyUidBtn" hidden>Copiar identificador</button>
+        </div>
+        <p class="access-note">No se requiere correo ni contraseña. El navegador debe estar autorizado en Firebase para proteger las hojas financieras.</p>
       </div>
     </section>
 
