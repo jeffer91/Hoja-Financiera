@@ -120,7 +120,7 @@ test('Envíos concurrentes e idénticos no producen duplicados',async()=>{
     functionSource(teacher,'submitToAdmin')+'\nreturn submitToAdmin')(
     ()=>true,{},id=>elements[id],
     async()=>({val:()=>({activoId:p.id,periodos:{[p.id]:p}})}),(_,id)=>id,
-    'periodosHojaFinanciera',()=>p,()=>{},()=>{},()=>{},()=>true,()=>{},
+    'periodosHojaFinanciera',()=>p,()=>{},()=>{},()=>{},()=>{},()=>true,()=>{},
     ()=>[{date:'2026-10-22',valueHour:null,hours:2,notes:'Refuerzo',evidence:''}],
     'Clases de refuerzo por carrera','manual',
     {getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value)},
