@@ -28,46 +28,97 @@ let periodConfig = {periodos:{}, activoId:null};
 let periodMutationBusy = false;
 
 bind();
-showAccessStatus('Verificando acceso automático…');
+showAccessStatus('Verificando el acceso automático…');
 let signingIn = false;
+let authorizing = false;
+let verifiedUid = '';
 
-onAuthStateChanged(auth, async user => {
-  if (!user) {
-    if (signingIn) return;
-    signingIn = true;
-    showAccessStatus('Conectando de forma segura con Firebase…');
-    try {
-      await signInAnonymously(auth);
-    } catch (error) {
-      console.error(error);
-      const message = error.code === 'auth/operation-not-allowed'
-        ? 'Debes habilitar el proveedor Anónimo en Firebase Authentication para utilizar el acceso sin contraseña.'
-        : 'No se pudo iniciar el acceso automático. Revisa la conexión y la configuración de Firebase.';
-      showAccessStatus(message);
-    } finally {
-      signingIn = false;
+function describeAuthError(error) {
+  const code = error && typeof error.code === 'string' ? error.code : 'auth/error-desconocido';
+  if (['auth/operation-not-allowed', 'auth/admin-restricted-operation', 'auth/configuration-not-found'].includes(code)) {
+    return {code, title:'Habilita el acceso anónimo en Firebase', message:'El proveedor Anónimo está deshabilitado o sin configurar. Abre Firebase → Authentication → Sign-in method → Anónimo → Habilitar → Guardar. Después pulsa Reintentar.'};
+  }
+  if (code === 'auth/network-request-failed' || code === 'auth/timeout') {
+    return {code,title:'No se pudo contactar con Firebase',message:'Comprueba tu conexión a Internet y que el navegador o un bloqueador no impida el acceso a Firebase. Vuelve a intentarlo.'};
+  }
+  if (['auth/invalid-api-key','auth/app-not-authorized','auth/unauthorized-domain','auth/invalid-auth-event'].includes(code)) {
+    return {code,title:'Revisa la configuración del proyecto',message:'Comprueba las restricciones de la API Key y los dominios autorizados en Firebase. El sitio usa jeffer91.github.io.'};
+  }
+  if (code === 'auth/too-many-requests') {
+    return {code,title:'Firebase ha limitado temporalmente las solicitudes',message:'Espera a que se restablezca la cuota de solicitudes del proyecto y vuelve a intentarlo.'};
+  }
+  return {code,title:'El acceso automático devolvió un error',message:'Revisa el código de error de Firebase y la configuración del proyecto. Puedes reintentar sin escribir ninguna contraseña.'};
+}
+
+function showAuthFailure(error) {
+  console.error('Error de autenticación de Firebase:', error);
+  const diag = describeAuthError(error);
+  showAccessStatus(diag.title, '', {code:diag.code, helpTitle:diag.title, helpDetail:diag.message});
+}
+
+async function authorizeBrowser(user) {
+  if (!user || authorizing) return;
+  if (verifiedUid === user.uid && !$('dashboardView').hidden) return;
+  authorizing = true;
+  showAccessStatus('Verificando permisos de este navegador…');
+  try {
+    const allowed = await isAdministrator(user.uid);
+    if (auth.currentUser?.uid !== user.uid) return;
+    if (allowed === null) {
+      showAccessStatus('Firebase no permitió verificar la autorización del navegador.', user.uid,
+        {helpTitle:'Revisa las reglas de Realtime Database',helpDetail:'Comprueba que el UID pueda leer administradores/UID y que las reglas estén publicadas. No es necesario activar el acceso público a las hojas.'});
+      return;
     }
-    return;
+    if (!allowed) {
+      showAccessStatus('Este navegador aún no tiene autorización administrativa.', user.uid,
+        {helpTitle:'Autoriza este navegador una sola vez',helpDetail:'Copia el identificador que aparece abajo. En Realtime Database → Datos crea administradores/UID/activo con valor booleano true, y luego pulsa Reintentar.'});
+      return;
+    }
+    verifiedUid = user.uid;
+    showDashboard(user);
+    listenSheets();
+    listenPeriods();
+  } finally {
+    authorizing = false;
   }
+}
 
-  const allowed = await isAdministrator(user.uid);
-  if (allowed === null) {
-    showAccessStatus('Firebase no permitió comprobar los permisos. Verifica las reglas de administradores en Realtime Database.', user.uid);
-    return;
+async function startAnonymousAccess() {
+  if (signingIn) return;
+  signingIn = true;
+  $('retryAccessBtn').disabled = true;
+  showAccessStatus('Conectando con Firebase de forma automática…');
+  try {
+    await signInAnonymously(auth);
+    // El observador de Firebase continúa automáticamente con la autorización.
+  } catch (error) {
+    showAuthFailure(error);
+  } finally {
+    signingIn = false;
+    $('retryAccessBtn').disabled = false;
   }
-  if (!allowed) {
-    showAccessStatus('Este navegador aún no tiene autorización administrativa. Registra su identificador en Firebase y actualiza la página.', user.uid);
-    return;
+}
+
+async function retryAccess() {
+  if (signingIn || authorizing) return;
+  if (auth.currentUser) {
+    await authorizeBrowser(auth.currentUser);
+  } else {
+    await startAnonymousAccess();
   }
-  showDashboard(user);
-  listenSheets();
-  listenPeriods();
-}, error => {
-  console.error(error);
-  showAccessStatus('No se pudo verificar el acceso automático con Firebase.');
-});
+}
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    void authorizeBrowser(user);
+  } else if (!signingIn) {
+    void startAnonymousAccess();
+  }
+}, showAuthFailure);
 
 function bind() {
+  $('retryAccessBtn').addEventListener('click', retryAccess);
+  $('copyUidBtn').addEventListener('click', copyBrowserUid);
   setupPeriodInputs();
   $('createPeriodForm').addEventListener('submit', createAndActivatePeriod);
   $('searchFilter').addEventListener('input', applyFilters);
@@ -96,18 +147,37 @@ async function isAdministrator(uid) {
   }
 }
 
-function showAccessStatus(message, uid = '') {
+function showAccessStatus(message, uid = '', detail = null) {
   if (stopListening) { stopListening(); stopListening = null; }
   if (stopPeriodListening) { stopPeriodListening(); stopPeriodListening = null; }
+  verifiedUid = '';
   records = [];
   filtered = [];
   currentId = null;
   $('accessView').hidden = false;
   $('dashboardView').hidden = true;
   $('accessMessage').textContent = message;
-  $('accessUid').textContent = uid ? 'ID de este navegador: ' + uid : '';
+  $('accessUid').textContent = uid ? 'ID del navegador: ' + uid : '';
   $('accessUid').hidden = !uid;
+  $('copyUidBtn').hidden = !uid;
+  $('accessErrorCode').textContent = detail?.code ? 'Código de Firebase: ' + detail.code : '';
+  $('accessErrorCode').hidden = !detail?.code;
+  $('accessHelpTitle').textContent = detail?.helpTitle || '';
+  $('accessHelpDetail').textContent = detail?.helpDetail || '';
+  $('accessHelp').hidden = !detail;
   if ($('sheetDialog').open) $('sheetDialog').close();
+}
+
+async function copyBrowserUid() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  try {
+    await navigator.clipboard.writeText(uid);
+    toast('Identificador copiado.');
+  } catch (error) {
+    console.error(error);
+    toast('No se pudo copiar automáticamente. Selecciona el identificador del recuadro.');
+  }
 }
 
 function showDashboard(user) {
