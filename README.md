@@ -6,6 +6,7 @@ Aplicación web para generar hojas financieras institucionales de **Clases de re
 
 - Selección de período lectivo por mes y año.
 - Consulta automática del nombre del docente mediante cédula en Firebase Realtime Database (`patrociniosGenerados/{cedula}`).
+- Alta manual de docentes nuevos si no constan en Firebase o falla la consulta. El nombre, el título y la carrera pueden ingresarse manualmente y enviarse en la hoja, marcada con `origenDocente: manual` para revisión administrativa. No modifica el padrón `patrociniosGenerados`.
 - Registro de título superior y carrera detectada.
 - Registro de clases con fecha, valor hora, horas trabajadas, observaciones y evidencia opcional.
 - Cálculo automático de horas y valor estimado.
