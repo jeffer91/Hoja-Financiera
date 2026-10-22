@@ -27,11 +27,11 @@ let stopPeriodListening = null;
 let periodConfig = {periodos:{}, activoId:null};
 let periodMutationBusy = false;
 
-bind();
-showAccessStatus('Verificando el acceso automático…');
 let signingIn = false;
 let authorizing = false;
 let verifiedUid = '';
+bind();
+showAccessStatus('Verificando el acceso automático…');
 
 function describeAuthError(error) {
   const code = error && typeof error.code === 'string' ? error.code : 'auth/error-desconocido';
