@@ -190,3 +190,11 @@ test('El servidor impide pagos no válidos y períodos incorrectos',()=>{
   assert.equal(validate({...proposal,estado:'Aprobada'}),false);
   assert.equal(validate({...proposal,totales:{clases:1,horas:2,valor:900}}),false);
 });
+
+test('Los módulos del administrador local tienen sintaxis correcta en Node',()=>{
+  const {spawnSync}=require('node:child_process');
+  for(const file of ['desktop-admin/admin.js','desktop-admin/local-db.js','desktop-admin/server.mjs']) {
+    const check=spawnSync(process.execPath,['--check',file],{cwd:root,encoding:'utf8'});
+    assert.equal(check.status,0,file+' '+check.stderr);
+  }
+});
