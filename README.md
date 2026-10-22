@@ -4,7 +4,7 @@ Aplicación web para generar hojas financieras institucionales de **Clases de re
 
 ## Funciones
 
-- Selección de período lectivo por mes y año.
+- Control exclusivo del período lectivo desde el administrador: crea, activa o desactiva períodos en Firebase; el docente utiliza el período activo automáticamente sin poder seleccionarlo.
 - Consulta automática del nombre del docente mediante cédula en Firebase Realtime Database (`patrociniosGenerados/{cedula}`).
 - Alta manual de docentes nuevos si no constan en Firebase o falla la consulta. El nombre, el título y la carrera pueden ingresarse manualmente y enviarse en la hoja, marcada con `origenDocente: manual` para revisión administrativa. No modifica el padrón `patrociniosGenerados`.
 - Registro de título superior y carrera detectada.
@@ -27,3 +27,7 @@ El formulario docente puede enviar hojas terminadas a `hojasFinancieras` en Fire
 ## Firebase
 
 La aplicación utiliza el proyecto `Repaso-Fire` y consulta el nodo `patrociniosGenerados` por cédula. La seguridad de los datos depende de las reglas configuradas en Firebase Realtime Database.
+
+## Configuración de períodos
+
+Es necesario integrar y publicar en Firebase Realtime Database las reglas del nodo `periodosHojaFinanciera` (lectura pública de fechas, escritura de administradores) y la validación de las nuevas hojas indicadas en `FIREBASE-ADMIN.md`. Cuando no existe un período activo, el formulario permite guardar borradores, pero bloquea imprimir, descargar PDF y enviar.
