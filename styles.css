@@ -342,3 +342,70 @@ body.pdf-export .pdf-page { box-shadow: none !important; margin: 0 !important; }
   .final-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .final-actions #submitAdminBtn { grid-column: 1 / -1; }
 }
+
+/* Interfaz compacta: se aplica solamente en pantalla y preserva A4/PDF. */
+@media screen {
+  .topbar { height:48px; padding:4px 12px; }
+  .brand { gap:9px; }
+  .brand img { width:76px; height:30px; padding:2px 4px; }
+  .brand strong { font-size:14px; }
+  .brand span { font-size:10px; }
+  .topbar-status { font-size:10px; padding:4px 9px; }
+  .app-layout { width:min(970px, calc(100% - 18px)); margin:6px auto 16px; }
+  .form-panel { padding:10px 15px; border-radius:11px; }
+  .panel-heading { margin-bottom:5px; }
+  .eyebrow { font-size:9px; margin-bottom:2px; }
+  h1 { font-size:18px; } h2 { font-size:13px; }
+  .wizard-progress { margin:0 0 5px; padding:5px 10px; border-radius:8px; }
+  .wizard-progress-head { margin-bottom:3px; }
+  .wizard-progress-head strong, .wizard-progress-head span { font-size:10px; }
+  .wizard-step b { width:20px; height:20px; font-size:10px; }
+  .wizard-step small { font-size:9px; }
+  .form-section { padding:7px 0; } .first-section { padding-top:3px; }
+  .section-title { margin-bottom:5px; align-items:center; gap:7px; }
+  .section-title p { font-size:10px; }
+  .step { width:21px; height:21px; flex-basis:21px; font-size:11px; border-radius:6px; }
+  .period-grid, .teacher-grid { gap:6px 10px; }
+  label { font-size:11px; gap:3px; }
+  input, select, textarea { padding:6px 8px; min-height:32px; font-size:12px; }
+  .input-action { gap:5px; }
+  .btn { padding:6px 10px; font-size:11px; }
+  .helper { font-size:10px; min-height:0; }
+  .helper:empty, .field-error:empty { display:none; }
+  .field-error { margin:4px 0 0 28px; min-height:0; }
+  .helper.notice { color:#805400; }
+  .teacher-heading > div { flex:1; }
+  .btn-new-teacher { color:var(--navy); background:#eaf1f8; border:1px solid #bdcee0; white-space:nowrap; }
+  .btn-new-teacher:hover { background:#dbe9f6; }
+  .wizard-nav { padding-top:7px; margin-top:2px; }
+  .fixed-value { padding:6px 10px; }
+  .activity-fields { padding:7px 9px; }
+  .activity-card-head { padding:4px 9px; }
+  textarea { min-height:48px; }
+  .summary-card > div, .review-card > div { padding:7px 9px; }
+}
+@media screen and (max-width:700px) {
+  .topbar { padding:5px 9px; }
+  .app-layout { width:calc(100% - 12px); }
+  .form-panel { padding:10px; }
+  .period-grid { grid-template-columns:1fr .75fr; }
+  .teacher-grid { grid-template-columns:1fr; }
+  .section-title p { display:none; }
+  .teacher-heading { flex-wrap:wrap; }
+  .btn-new-teacher { margin-left:auto; }
+  .wizard-progress-head { flex-direction:row; align-items:center; }
+  .wizard-nav, .final-nav { flex-direction:row; align-items:center; }
+  .wizard-nav .btn { width:auto; }
+  .final-actions { display:flex; width:auto; }
+  .final-actions .btn { width:auto; }
+  .final-actions #submitAdminBtn { grid-column:auto; }
+}
+@media screen and (max-width:460px) {
+  .teacher-heading > div { flex-basis:calc(100% - 35px); }
+  .btn-new-teacher { margin-left:28px; }
+  .wizard-nav, .final-nav { flex-wrap:wrap; }
+  .final-nav { flex-direction:column; align-items:stretch; }
+  .final-actions { display:grid; grid-template-columns:1fr 1fr; }
+  .final-actions .btn { width:100%; }
+  .final-actions #submitAdminBtn { grid-column:1 / -1; }
+}
