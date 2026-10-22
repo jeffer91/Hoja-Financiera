@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getDatabase, ref, get, onValue, update } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+import { getDatabase, ref, get, onValue, update, runTransaction } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 
 const firebaseConfig = {
@@ -16,11 +16,16 @@ const $ = id => document.getElementById(id);
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+const PERIODS_PATH = 'periodosHojaFinanciera';
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 let records = [];
 let filtered = [];
 let currentId = null;
 let stopListening = null;
+let stopPeriodListening = null;
+let periodConfig = {periodos:{}, activoId:null};
+let periodMutationBusy = false;
 
 bind();
 showAccessStatus('Verificando acceso automático…');
@@ -56,12 +61,15 @@ onAuthStateChanged(auth, async user => {
   }
   showDashboard(user);
   listenSheets();
+  listenPeriods();
 }, error => {
   console.error(error);
   showAccessStatus('No se pudo verificar el acceso automático con Firebase.');
 });
 
 function bind() {
+  setupPeriodInputs();
+  $('createPeriodForm').addEventListener('submit', createAndActivatePeriod);
   $('searchFilter').addEventListener('input', applyFilters);
   $('statusFilter').addEventListener('change', applyFilters);
   $('periodFilter').addEventListener('change', applyFilters);
@@ -90,6 +98,7 @@ async function isAdministrator(uid) {
 
 function showAccessStatus(message, uid = '') {
   if (stopListening) { stopListening(); stopListening = null; }
+  if (stopPeriodListening) { stopPeriodListening(); stopPeriodListening = null; }
   records = [];
   filtered = [];
   currentId = null;
@@ -105,6 +114,149 @@ function showDashboard(user) {
   $('accessView').hidden = true;
   $('dashboardView').hidden = false;
   $('adminIdentity').textContent = user.email || 'Navegador autorizado · Acceso automático';
+}
+
+function setupPeriodInputs() {
+  for (const id of ['adminStartMonth', 'adminEndMonth']) {
+    const select = $(id);
+    MONTHS.forEach((month, index) => {
+      const op = document.createElement('option');
+      op.value = String(index + 1);
+      op.textContent = month;
+      select.appendChild(op);
+    });
+  }
+  const date = new Date();
+  const year = date.getFullYear(), month = date.getMonth() + 1;
+  const startYear = month >= 10 ? year : month >= 4 ? year : year - 1;
+  const startMonth = month >= 10 || month < 4 ? 10 : 4;
+  $('adminStartMonth').value = String(startMonth);
+  $('adminStartYear').value = String(startYear);
+  $('adminEndMonth').value = String(startMonth === 10 ? 3 : 9);
+  $('adminEndYear').value = String(startYear + (startMonth === 10 ? 1 : 0));
+}
+
+function buildPeriodFromFields() {
+  const p = {
+    mesInicio: Number($('adminStartMonth').value),
+    anioInicio: Number($('adminStartYear').value),
+    mesFin: Number($('adminEndMonth').value),
+    anioFin: Number($('adminEndYear').value)
+  };
+  const valid = [p.mesInicio, p.mesFin].every(n => Number.isInteger(n) && n >= 1 && n <= 12)
+    && [p.anioInicio, p.anioFin].every(n => Number.isInteger(n) && n >= 2020 && n <= 2100)
+    && p.anioFin * 12 + p.mesFin >= p.anioInicio * 12 + p.mesInicio;
+  if (!valid) return null;
+  p.etiqueta = MONTHS[p.mesInicio - 1] + ' ' + p.anioInicio + ' - ' +
+    MONTHS[p.mesFin - 1] + ' ' + p.anioFin;
+  p.id = p.anioInicio + '-' + String(p.mesInicio).padStart(2, '0') + '_' +
+    p.anioFin + '-' + String(p.mesFin).padStart(2, '0');
+  return p;
+}
+
+// La transacción garantiza que solo exista un período activo.
+function applyPeriodChange(current, action, incoming) {
+  const next = current && typeof current === 'object' ? {...current} : {};
+  next.periodos = next.periodos && typeof next.periodos === 'object' ? {...next.periodos} : {};
+  if (action === 'create') {
+    if (!incoming) return;
+    if (!next.periodos[incoming.id]) next.periodos[incoming.id] = {
+      mesInicio: incoming.mesInicio, anioInicio: incoming.anioInicio,
+      mesFin: incoming.mesFin, anioFin: incoming.anioFin,
+      etiqueta: incoming.etiqueta, creadoEn: Date.now()
+    };
+    next.activoId = incoming.id;
+  } else if (action === 'activate') {
+    if (!incoming || !next.periodos[incoming.id]) return;
+    next.activoId = incoming.id;
+  } else if (action === 'deactivate') {
+    if (!incoming || next.activoId !== incoming.id) return;
+    next.activoId = null;
+  } else return;
+  next.modificadoEn = Date.now();
+  return next;
+}
+
+async function changePeriod(action, incoming) {
+  if (periodMutationBusy) return;
+  if (!auth.currentUser) {
+    toast('No se verificó tu autorización de administrador.');
+    return;
+  }
+  periodMutationBusy = true;
+  $('createPeriodBtn').disabled = true;
+  $('periodsStatus').textContent = 'Guardando cambios en Firebase…';
+  try {
+    const result = await runTransaction(ref(db, PERIODS_PATH),
+      value => applyPeriodChange(value, action, incoming), {applyLocally:false});
+    if (result.committed) toast('Período actualizado correctamente.');
+    else toast('No se realizó ningún cambio en el período.');
+  } catch (error) {
+    console.error(error);
+    $('periodsStatus').textContent = 'No se pudo guardar. Revisa las reglas de Firebase.';
+    toast('Firebase no permitió guardar el período.');
+  } finally {
+    periodMutationBusy = false;
+    $('createPeriodBtn').disabled = false;
+  }
+}
+
+function createAndActivatePeriod(event) {
+  event.preventDefault();
+  const period = buildPeriodFromFields();
+  if (!period) {
+    toast('Selecciona un período válido. El fin debe ser igual o posterior al inicio.');
+    return;
+  }
+  changePeriod('create', period);
+}
+
+function listenPeriods() {
+  if (stopPeriodListening) stopPeriodListening();
+  stopPeriodListening = onValue(ref(db, PERIODS_PATH), snapshot => {
+    const data = snapshot.val();
+    periodConfig = data && typeof data === 'object' ? data : {periodos:{}, activoId:null};
+    renderPeriodList();
+  }, error => {
+    console.error(error);
+    $('periodsStatus').textContent = 'No se pudieron cargar los períodos. Revisa las reglas de Firebase.';
+    $('periodsList').replaceChildren();
+  });
+}
+
+function renderPeriodList() {
+  const all = Object.entries(periodConfig.periodos || {});
+  const activeId = periodConfig.activoId || null;
+  $('periodsStatus').textContent = activeId && periodConfig.periodos?.[activeId]
+    ? 'Activo: ' + periodConfig.periodos[activeId].etiqueta
+    : 'No hay período activo. El envío de hojas está bloqueado.';
+  const host = $('periodsList');
+  host.replaceChildren();
+  if (!all.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted periods-empty';
+    empty.textContent = 'Todavía no hay períodos. Crea el primero para habilitar el formulario docente.';
+    host.appendChild(empty);
+    return;
+  }
+  all.sort(([a],[b]) => b.localeCompare(a)).forEach(([id,entry]) => {
+    const row = document.createElement('div');
+    row.className = 'period-row';
+    const title = document.createElement('strong');
+    title.textContent = entry.etiqueta || id;
+    const label = document.createElement('span');
+    const active = activeId === id;
+    label.className = 'period-label' + (active ? ' active' : '');
+    label.textContent = active ? 'ACTIVO' : 'Inactivo';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn ' + (active ? 'secondary' : 'primary');
+    button.textContent = active ? 'Desactivar' : 'Activar';
+    button.disabled = periodMutationBusy;
+    button.addEventListener('click', () => changePeriod(active ? 'deactivate' : 'activate', {id}));
+    row.append(title,label,button);
+    host.appendChild(row);
+  });
 }
 
 function listenSheets() {
