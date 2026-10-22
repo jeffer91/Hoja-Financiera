@@ -46,6 +46,22 @@
         </div>
       </div>
 
+      <section class="periods-card" aria-labelledby="periodsHeading">
+        <div class="periods-header"><div>
+          <h2 id="periodsHeading">Períodos lectivos</h2>
+          <p id="periodsStatus" class="muted" role="status">Consultando períodos en Firebase…</p>
+        </div></div>
+        <form id="createPeriodForm" class="periods-form">
+          <label>Mes de inicio<select id="adminStartMonth" required></select></label>
+          <label>Año de inicio<input id="adminStartYear" type="number" min="2020" max="2100" required /></label>
+          <label>Mes de fin<select id="adminEndMonth" required></select></label>
+          <label>Año de fin<input id="adminEndYear" type="number" min="2020" max="2100" required /></label>
+          <button id="createPeriodBtn" type="submit" class="btn primary">Crear y activar</button>
+        </form>
+        <div id="periodsList" class="periods-list" aria-label="Períodos guardados"></div>
+        <p class="periods-hint">Solo puede haber un período activo. Los cambios no alteran las hojas ya enviadas.</p>
+      </section>
+
       <section class="stats" aria-label="Resumen">
         <article><span>Recibidas</span><strong id="statTotal">0</strong></article>
         <article><span>Pendientes</span><strong id="statPending">0</strong></article>
