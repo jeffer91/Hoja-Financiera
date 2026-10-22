@@ -147,3 +147,13 @@ test('Reglas documentadas niegan lectura pública de hojas y escritura de perío
 test('El despliegue está condicionado a la ejecución de las pruebas',()=>{
   assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
 });
+
+test('El error de proyecto Authentication sin configurar da pasos para inicializarlo',()=>{
+  const fn=make(admin,'describeAuthError');
+  const issue=fn({code:'auth/configuration-not-found'});
+  assert.match(issue.message,/Comenzar/);
+  assert.match(issue.message,/Anónimo/);
+  assert.match(adminHtml,/authentication/);
+  assert.match(adminHtml,/Configurar Authentication en Firebase/);
+  assert.match(admin,/visibilitychange/);
+});
