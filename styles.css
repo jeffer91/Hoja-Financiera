@@ -428,3 +428,35 @@ body.pdf-export .pdf-page { box-shadow: none !important; margin: 0 !important; }
 /* El docente no modifica períodos; solo se muestra una advertencia si falta uno. */
 .period-warning{color:#8a301f;background:#fff2ee;border:1px solid #e7b4a7;padding:9px 12px;border-radius:9px;font-size:12px;font-weight:700;margin:0 0 10px}
 .period-warning[hidden]{display:none !important}
+
+
+/* Documento institucional: hojas A4 y enlaces extensos sin recortes. */
+body.pdf-export .activities-table tr,
+body.pdf-export .evidence-item,
+body.pdf-export .signatures {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+body.pdf-export .evidence-url,
+body.pdf-export .evidence-url a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: #073e6c;
+  text-decoration: underline;
+}
+body.pdf-export .pdf-page {
+  page-break-after: always;
+}
+body.pdf-export .pdf-page:last-child {
+  page-break-after: auto;
+}
+@media print {
+  .activities-table tr, .evidence-item, .signatures {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .evidence-url, .evidence-url a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
