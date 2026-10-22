@@ -57,13 +57,17 @@ Integra estas condiciones en las reglas existentes sin eliminar reglas de otros 
     ".read": "auth != null && root.child('administradores').child(auth.uid).child('activo').val() === true",
     "$id": {
       ".write": "!data.exists() || (auth != null && root.child('administradores').child(auth.uid).child('activo').val() === true)",
-      ".validate": "data.exists() || (root.child('periodosHojaFinanciera').child('activoId').isString() && newData.child('periodo').child('id').val() === root.child('periodosHojaFinanciera').child('activoId').val() && newData.child('periodo').child('etiqueta').val() === root.child('periodosHojaFinanciera').child('periodos').child(root.child('periodosHojaFinanciera').child('activoId').val()).child('etiqueta').val())"
+      ".validate": "data.exists() || (newData.hasChildren(['cedula', 'docente', 'tituloSuperior', 'periodo', 'actividades', 'estado', 'totales', 'fechaEnvio']) && newData.child('version').val() === 2 && newData.child('estado').val() === 'Enviada' && newData.child('origen').val() === 'Hoja-Financiera' && newData.child('cedula').isString() && newData.child('cedula').val().matches(/^[0-9]{10}$/) && newData.child('docente').isString() && newData.child('docente').val().length > 0 && newData.child('docente').val().length <= 150 && newData.child('tituloSuperior').isString() && newData.child('tituloSuperior').val().length > 0 && newData.child('tituloSuperior').val().length <= 200 && newData.child('actividades').hasChildren() && newData.child('totales').child('valor').val() === 0 && newData.child('totales').child('horas').isNumber() && newData.child('totales').child('horas').val() > 0 && root.child('periodosHojaFinanciera').child('activoId').isString() && newData.child('periodo').child('id').val() === root.child('periodosHojaFinanciera').child('activoId').val() && newData.child('periodo').child('etiqueta').val() === root.child('periodosHojaFinanciera').child('periodos').child(root.child('periodosHojaFinanciera').child('activoId').val()).child('etiqueta').val())"
     }
   }
 }
 ```
 
-La lectura y la edición de hojas existentes requieren autorización; la creación de registros nuevos desde el formulario docente continúa sin inicio de sesión. Las reglas anteriores son un mínimo de compatibilidad, no sustituyen validaciones de contenido y mecanismos antispam para nuevas hojas.
+La lectura y la edición de hojas existentes requieren autorización; la creación de registros nuevos desde el formulario docente continúa sin inicio de sesión.
+
+**Importante sobre la integridad financiera:** estas condiciones adicionales impiden que un cliente anónimo cree hojas directamente en estado `Aprobada`, declare valores monetarios propios o invente un período distinto del autorizado. Se conserva la creación sin login para docentes; esta facilidad **no verifica su identidad ni evita completamente envíos automatizados**. Para uso de producción es recomendable agregar controles de identidad, tamaño, volumen y frecuencia de los envíos, y probar las reglas en Firebase Emulator Suite.
+
+**Las reglas mostradas son fragmentos para integrar dentro de `rules`** en tu configuración existente, no un reemplazo completo del proyecto compartido. No modifiques reglas globales que puedan afectar otras aplicaciones del proyecto. Las reglas anteriores son un mínimo de compatibilidad, no sustituyen validaciones de contenido y mecanismos antispam para nuevas hojas.
 
 ## 3. Configurar períodos lectivos (obligatorio)
 
