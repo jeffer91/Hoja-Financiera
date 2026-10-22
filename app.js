@@ -29,6 +29,7 @@ const validatedPages = new Set();
 let activePeriod = null;
 let periodState = 'loading';
 let submissionInProgress = false;
+let documentServiceReady = false;
 const PRIVATE_SHEETS_KEY = 'hf-private-sheet-links-v1';
 let correctionTarget = null;
 
@@ -46,6 +47,7 @@ if (!restoreDraft()) addActivity();
 updateAll();
 goToPage(1, false);
 listenActivePeriod();
+void checkDocumentService();
 checkPrivateSheetLink();
 
 function validPeriod(entry) {
@@ -84,7 +86,8 @@ function renderPeriodAvailability() {
         ? 'No se pudo consultar el período autorizado. Contacta a Titulación.'
         : 'No hay un período lectivo activo. Titulación debe habilitarlo antes de enviar una hoja.';
   }
-  ['printBtn','pdfBtn','submitAdminBtn'].forEach(id => { $(id).disabled = !activePeriod && !correctionTarget?.periodo; });
+  ['printBtn','pdfBtn'].forEach(id => { $(id).disabled = !activePeriod && !correctionTarget?.periodo; });
+  $('submitAdminBtn').disabled = (!activePeriod && !correctionTarget?.periodo) || !documentServiceReady;
 }
 
 function listenActivePeriod() {
@@ -649,8 +652,30 @@ async function consultStatus() {
     }
   } catch(e){box.textContent='No se pudo consultar el estado: '+e.message;}
 }
+async function checkDocumentService() {
+  const indicator=$('documentServiceStatus');
+  try {
+    const health=await apiRequest('/api/health');
+    documentServiceReady=health.ok===true;
+    if(documentServiceReady) {
+      indicator.textContent='Recepción de PDF firmados disponible.';
+      indicator.dataset.status='ready';
+    } else {
+      indicator.textContent=health.reason==='credentials-required'
+        ? 'La recepción de PDF firmados está pendiente de habilitación institucional. Puedes preparar y descargar tu hoja.'
+        : 'La recepción de PDF firmados no está disponible en este momento. Conserva el documento para subirlo después.';
+      indicator.dataset.status='unavailable';
+    }
+  } catch(e) {
+    documentServiceReady=false;
+    indicator.textContent='No es posible conectar con la recepción de PDF. Puedes descargar tu hoja e intentarlo más tarde.';
+    indicator.dataset.status='unavailable';
+  }
+  renderPeriodAvailability();
+}
 async function submitToAdmin() {
   if(submissionInProgress)return;
+  if(!documentServiceReady)return toast('La recepción de PDF firmados aún no está disponible. Conserva tu PDF para enviarlo después.');
   if(!validateForm())return;
   const file=$('signedPdfFile').files?.[0];
   if(!file)return fail('Selecciona el PDF que ya firmaste.', $('signedPdfFile'));
@@ -689,7 +714,7 @@ async function submitToAdmin() {
     toast('Error al subir el PDF: '+e.message);
   } finally {
     submissionInProgress=false;
-    btn.disabled=!activePeriod&&!correctionTarget?.periodo;
+    btn.disabled=(!activePeriod&&!correctionTarget?.periodo)||!documentServiceReady;
     btn.textContent='Subir PDF firmado';
   }
 }
