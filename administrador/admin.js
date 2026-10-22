@@ -483,8 +483,34 @@ function openSheet(id) {
   $('editStatus').value = item.estado || 'Enviada';
   $('editObservation').value = item.observacionAdmin || '';
   renderEditActivities(item.actividades || []);
+  renderHistory(item.historialCambios || {});
   updateDialogTotals();
   $('sheetDialog').showModal();
+}
+
+
+function renderHistory(entries) {
+  const container = $('historyList');
+  container.replaceChildren();
+  const events = Object.entries(entries || {}).map(([key,item])=>({key,...item}))
+    .sort((a,b)=>Number(b.fecha||0)-Number(a.fecha||0));
+  if (!events.length) {
+    const empty = document.createElement('p');
+    empty.textContent = 'No hay modificaciones administrativas registradas en esta hoja.';
+    container.appendChild(empty);
+    return;
+  }
+  for (const entry of events) {
+    const details = document.createElement('details');
+    details.className = 'history-event';
+    const summary = document.createElement('summary');
+    summary.textContent = formatDateTime(entry.fecha) + ' · ' + (entry.tipo||'Actualización') +
+      ' · Navegador ' + (entry.uid||'desconocido');
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(entry.cambios || {}, null, 2);
+    details.append(summary,pre);
+    container.appendChild(details);
+  }
 }
 
 function renderEditActivities(items) {
@@ -587,15 +613,17 @@ async function saveCurrent(closeAfter = false) {
   if (!Object.keys(changes).length) { toast('No hay cambios pendientes.'); return true; }
   const historyKey = push(ref(db,'hojasFinancieras/'+currentId+'/historialCambios')).key;
   if (!historyKey) { toast('No se pudo crear el identificador de auditoría.'); return false; }
-  payload['historialCambios/'+historyKey] = {
+  const historyEntry = {
     fecha:Date.now(),
     uid:auth.currentUser?.uid || 'sin-uid',
     tipo:'Actualización administrativa',
     cambios:changes
   };
+  payload['historialCambios/'+historyKey] = historyEntry;
   $('saveSheetBtn').disabled = true;
   try {
     await update(ref(db,'hojasFinancieras/'+currentId),payload);
+    renderHistory({...previous.historialCambios, [historyKey]:historyEntry});
     toast('Cambios guardados con historial.');
     if (closeAfter) $('sheetDialog').close();
     return true;
@@ -621,6 +649,7 @@ function exportExcel() {
     Estado: r.estado || '',
     Docente: r.docente || '',
     Origen_docente: r.origenDocente === 'manual' ? 'Ingreso manual (verificar)' : 'Firebase / no especificado',
+    Cambios_registrados: Object.keys(r.historialCambios || {}).length,
     Cedula: r.cedula || '',
     Titulo: r.tituloSuperior || '',
     Carrera: r.carrera || '',
