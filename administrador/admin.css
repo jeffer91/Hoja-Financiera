@@ -102,3 +102,8 @@ dialog::backdrop{background:rgba(16,25,40,.58)}
 .history-event{padding:8px;border:1px solid #dce5f0;border-radius:8px;background:#fff}
 .history-event>summary{font-size:11px;font-weight:700;cursor:pointer}
 .history-event pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;font-size:10px;background:#f5f7fb;padding:9px}
+
+/* Guía de activación del proyecto Firebase para acceso sin contraseña. */
+.access-steps {padding-left:17px; margin:8px 0 4px; color:var(--muted); font-size:11px; line-height:1.5}
+.access-steps li {margin:4px 0}
+.access-steps strong {font-size:inherit}
