@@ -33,6 +33,7 @@
         <button class="btn btn-ghost" type="button" id="clearBtn">Limpiar</button>
       </div>
 
+      <p id="periodUnavailable" class="period-warning" role="alert">Verificando disponibilidad del formulario…</p>
       <form id="financeForm" novalidate>
         <nav class="wizard-progress" aria-label="Progreso del formulario">
           <div class="wizard-progress-head">
@@ -49,31 +50,9 @@
         </nav>
 
         <section class="wizard-page is-active" data-wizard-page="1">
-          <section class="form-section first-section">
-            <div class="section-title">
-              <span class="step">1</span>
-              <div><h2>Período lectivo</h2><p>Selecciona el inicio y fin del período.</p></div>
-            </div>
-            <div class="period-grid">
-              <label>Mes inicio
-                <select id="startMonth" required></select>
-              </label>
-              <label>Año inicio
-                <input id="startYear" type="number" min="2020" max="2100" step="1" required />
-              </label>
-              <label>Mes fin
-                <select id="endMonth" required></select>
-              </label>
-              <label>Año fin
-                <input id="endYear" type="number" min="2020" max="2100" step="1" required />
-              </label>
-            </div>
-            <p class="field-error" id="periodError"></p>
-          </section>
-
           <section class="form-section">
             <div class="section-title teacher-heading">
-              <span class="step">2</span>
+              <span class="step">1</span>
               <div><h2>Docente</h2><p>Busca por cédula o agrega uno nuevo.</p></div>
               <button type="button" class="btn btn-new-teacher" id="manualTeacherBtn">+ Docente nuevo</button>
             </div>
@@ -141,8 +120,7 @@
             <div class="review-card">
               <div><span>Docente</span><strong id="reviewTeacher">—</strong></div>
               <div><span>Cédula</span><strong id="reviewCedula">—</strong></div>
-              <div><span>Período</span><strong id="reviewPeriod">—</strong></div>
-              <div><span>Carrera</span><strong id="reviewCareer">—</strong></div>
+                            <div><span>Carrera</span><strong id="reviewCareer">—</strong></div>
             </div>
 
             <section class="summary-card">
