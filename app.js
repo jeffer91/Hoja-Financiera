@@ -21,11 +21,13 @@ const list = $('activities');
 const template = $('activityTemplate');
 const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y enviar'];
 let currentWizardPage = 1;
+let teacherSource = '';
+let lookupSequence = 0;
 
 let db = null;
 try {
   db = getDatabase(initializeApp(firebaseConfig));
-  setFirebaseStatus('Firebase conectado', true);
+  setFirebaseStatus('Firebase preparado', true);
 } catch (e) {
   console.error(e);
   setFirebaseStatus('Firebase no disponible', false);
@@ -74,6 +76,15 @@ function bind() {
   });
   $('addActivityBtn').addEventListener('click', () => addActivity());
   $('lookupBtn').addEventListener('click', lookupTeacher);
+  $('manualTeacherBtn').addEventListener('click', () => {
+    if (!/^\d{10}$/.test($('cedula').value.trim())) {
+      toast('Ingresa primero la cédula de 10 dígitos.');
+      $('cedula').focus();
+      return;
+    }
+    manualTeacher('Registro nuevo: completa los datos; el administrador podrá verificarlos.');
+    $('teacherName').focus();
+  });
   $('cedula').addEventListener('input', cedulaChanged);
   $('cedula').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); lookupTeacher(); }
@@ -196,41 +207,48 @@ function addPair(grid, label, value, url) {
 }
 
 async function lookupTeacher() {
-  const cedula = $('cedula').value.replace(/\D/g, '').slice(0,10);
+  const cedula = $('cedula').value.replace(/\D/g, '').slice(0, 10);
   $('cedula').value = cedula;
   const msg = $('lookupMessage');
   msg.className = 'helper';
-
   if (!/^\d{10}$/.test(cedula)) {
     msg.textContent = 'La cédula debe tener 10 dígitos.';
     msg.classList.add('error');
     return;
   }
-  if (!db) return manualTeacher('Firebase no está disponible.');
-
+  if (!db) return manualTeacher('Firebase no disponible. Completa los datos del docente nuevo.');
+  const request = ++lookupSequence;
   $('lookupBtn').disabled = true;
   $('lookupBtn').textContent = 'Buscando…';
   msg.textContent = 'Consultando Firebase…';
-
   try {
     const snap = await get(ref(db, 'patrociniosGenerados/' + cedula));
-    if (!snap.exists()) return manualTeacher('No se encontró esta cédula en Firebase.');
+    if (request !== lookupSequence || $('cedula').value !== cedula) return;
+    if (!snap.exists()) return manualTeacher('No consta en Firebase. Completa los datos del docente nuevo.');
     const record = findRecord(snap.val(), cedula);
-    if (!record || !record.docente) return manualTeacher('La cédula existe, pero no se encontró el nombre del docente.');
-
+    if (!record || !record.docente) return manualTeacher('No se encontró el nombre. Puedes ingresarlo manualmente.');
+    teacherSource = 'firebase';
     $('teacherName').value = clean(record.docente);
     $('teacherName').readOnly = true;
+    $('teacherName').placeholder = 'Automático o escribe un docente nuevo';
     $('teacherCareer').value = clean(record.carrera || '');
+    $('teacherCareer').readOnly = true;
+    $('manualTeacherBtn').textContent = '+ Docente nuevo';
     restoreTitle(cedula);
-    msg.textContent = 'Docente encontrado correctamente.';
-    msg.classList.add('success');
+    msg.textContent = 'Docente encontrado en Firebase.';
+    msg.className = 'helper success';
+    setFirebaseStatus('Firebase conectado', true);
     updateAll();
   } catch (e) {
     console.error(e);
-    manualTeacher('No fue posible consultar Firebase. Revisa las reglas de lectura.');
+    if (request !== lookupSequence || $('cedula').value !== cedula) return;
+    setFirebaseStatus('Sin acceso a la consulta', false);
+    manualTeacher('Firebase no pudo consultarse. Ingresa los datos; quedarán pendientes de verificación.');
   } finally {
-    $('lookupBtn').disabled = false;
-    $('lookupBtn').textContent = 'Buscar';
+    if (request === lookupSequence) {
+      $('lookupBtn').disabled = false;
+      $('lookupBtn').textContent = 'Buscar';
+    }
   }
 }
 
@@ -245,22 +263,38 @@ function findRecord(value, cedula) {
 }
 
 function manualTeacher(message) {
-  const msg = $('lookupMessage');
-  msg.textContent = message + ' Puedes escribir el nombre manualmente.';
-  msg.className = 'helper error';
-  $('teacherName').value = '';
+  lookupSequence++; // Invalida búsquedas anteriores para proteger los datos ingresados.
+  teacherSource = 'manual';
+  $('lookupBtn').disabled = false;
+  $('lookupBtn').textContent = 'Buscar';
   $('teacherName').readOnly = false;
-  $('teacherCareer').value = '';
+  $('teacherCareer').readOnly = false;
+  $('teacherName').placeholder = 'Escribe apellidos y nombres';
+  $('teacherCareer').placeholder = 'Escribe la carrera (opcional)';
+  $('manualTeacherBtn').textContent = 'Ingreso manual activo';
+  const msg = $('lookupMessage');
+  msg.textContent = message;
+  msg.className = 'helper notice';
   updateAll();
 }
 
 function cedulaChanged() {
   const input = $('cedula');
-  input.value = input.value.replace(/\D/g, '').slice(0,10);
+  input.value = input.value.replace(/\D/g, '').slice(0, 10);
+  lookupSequence++;
+  teacherSource = '';
   $('lookupMessage').textContent = '';
+  $('lookupMessage').className = 'helper';
+  $('lookupBtn').disabled = false;
+  $('lookupBtn').textContent = 'Buscar';
   $('teacherName').value = '';
   $('teacherName').readOnly = true;
+  $('teacherName').placeholder = 'Automático o escribe un docente nuevo';
+  $('teacherTitle').value = ''; // Nunca reutilizar título de otra cédula.
   $('teacherCareer').value = '';
+  $('teacherCareer').readOnly = true;
+  $('teacherCareer').placeholder = 'Automática o ingresa la carrera';
+  $('manualTeacherBtn').textContent = '+ Docente nuevo';
   if (input.value.length === 10) lookupTeacher();
   updateAll();
 }
@@ -400,6 +434,7 @@ async function submitToAdmin() {
     observacionAdmin: '',
     cedula: $('cedula').value.trim(),
     docente: $('teacherName').value.trim(),
+    origenDocente: teacherSource === 'manual' ? 'manual' : 'firebase',
     tituloSuperior: $('teacherTitle').value.trim(),
     carrera: $('teacherCareer').value.trim(),
     periodo: {
@@ -490,6 +525,7 @@ function saveDraft(showMessage) {
     startMonth:$('startMonth').value, startYear:$('startYear').value,
     endMonth:$('endMonth').value, endYear:$('endYear').value,
     cedula:$('cedula').value, teacherName:$('teacherName').value,
+    teacherSource:teacherSource,
     teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
     activities:activities()
   };
@@ -505,7 +541,14 @@ function restoreDraft() {
     ['startMonth','startYear','endMonth','endYear','cedula','teacherName','teacherTitle','teacherCareer'].forEach(k => {
       if (d[k] != null) $(k).value = d[k];
     });
-    $('teacherName').readOnly = Boolean(d.teacherName);
+    teacherSource = d.teacherName ? (d.teacherSource === 'firebase' ? 'firebase' : 'manual') : '';
+    $('teacherName').readOnly = teacherSource !== 'manual';
+    $('teacherCareer').readOnly = teacherSource !== 'manual';
+    $('manualTeacherBtn').textContent = teacherSource === 'manual' ? 'Ingreso manual activo' : '+ Docente nuevo';
+    if (teacherSource === 'manual') {
+      $('lookupMessage').textContent = 'Docente de ingreso manual en borrador. Verifica los datos.';
+      $('lookupMessage').className = 'helper notice';
+    }
     list.replaceChildren();
     (d.activities && d.activities.length ? d.activities : [{}]).forEach(addActivity);
     return true;
@@ -520,7 +563,12 @@ function clearForm() {
   localStorage.removeItem(DRAFT);
   form.reset();
   setupPeriod();
+  lookupSequence++;
+  teacherSource = '';
   $('teacherName').readOnly = true;
+  $('teacherCareer').readOnly = true;
+  $('manualTeacherBtn').textContent = '+ Docente nuevo';
+  $('lookupMessage').className = 'helper';
   $('lookupMessage').textContent = '';
   list.replaceChildren();
   addActivity();
