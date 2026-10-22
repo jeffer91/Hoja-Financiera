@@ -68,8 +68,13 @@ function renderPeriods() {
     const div=document.createElement('div');div.className='period-entry';
     const span=document.createElement('span');span.textContent=item.etiqueta||id;
     const btn=document.createElement('button');btn.className='btn secondary';
-    btn.textContent=id===state.activeId?'Desactivar':'Activar';
-    btn.addEventListener('click',()=>periodAction(id===state.activeId?'desactivar':'activar',{id}));
+    if(id==='2026-02_2026-08' && id!==state.activeId) {
+      btn.textContent='Disponible para docentes';
+      btn.disabled=true;
+    } else {
+      btn.textContent=id===state.activeId?'Desactivar':'Activar';
+      btn.addEventListener('click',()=>periodAction(id===state.activeId?'desactivar':'activar',{id}));
+    }
     div.append(span,btn);area.appendChild(div);
   }
 }
