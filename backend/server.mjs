@@ -160,6 +160,43 @@ async function revise(req,res) {
   catch(e){await bucket.file(path).delete({ignoreNotFound:true}).catch(()=>{});throw e;}
   reply(res,200,{ok:true,id,estado:STATES.received,version});
 }
+async function getPeriods(res) {
+  const snap=await db.ref('periodosHojaFinanciera').get();
+  const v=snap.val()||{};
+  reply(res,200,{periodos:v.periodos||{},activoId:v.activoId||null});
+}
+async function changeAdminPeriod(req,res) {
+  const payload=await body(req);
+  const operation=payload.action, p=payload.period||{};
+  const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const valid=Number.isInteger(p.mesInicio)&&p.mesInicio>=1&&p.mesInicio<=12&&
+    Number.isInteger(p.mesFin)&&p.mesFin>=1&&p.mesFin<=12&&
+    Number.isInteger(p.anioInicio)&&p.anioInicio>=2020&&p.anioInicio<=2100&&
+    Number.isInteger(p.anioFin)&&p.anioFin>=2020&&p.anioFin<=2100&&
+    p.anioFin*12+p.mesFin>=p.anioInicio*12+p.mesInicio;
+  if(!['crear','activar','desactivar'].includes(operation))return error(res,400,'Acción inválida');
+  if(operation==='crear'&&!valid)return error(res,400,'Período inválido');
+  const result=await db.ref('periodosHojaFinanciera').transaction(value=>{
+    const state=value&&typeof value==='object'?{...value}:{};
+    state.periodos={...(state.periodos||{})};
+    if(operation==='crear') {
+      const id=p.anioInicio+'-'+String(p.mesInicio).padStart(2,'0')+'_'
+        +p.anioFin+'-'+String(p.mesFin).padStart(2,'0');
+      if(!state.periodos[id])state.periodos[id]={mesInicio:p.mesInicio,anioInicio:p.anioInicio,
+        mesFin:p.mesFin,anioFin:p.anioFin,etiqueta:months[p.mesInicio-1]+' '+p.anioInicio+' - '+months[p.mesFin-1]+' '+p.anioFin,creadoEn:Date.now()};
+      state.activoId=id;
+    } else if(operation==='activar') {
+      if(typeof p.id!=='string'||!state.periodos[p.id])return;
+      state.activoId=p.id;
+    } else {
+      if(typeof p.id!=='string'||state.activoId!==p.id)return;
+      state.activoId=null;
+    }
+    state.modificadoEn=Date.now();
+    return state;
+  },undefined,false);
+  reply(res,200,{ok:result.committed,activoId:result.snapshot.val()?.activoId||null});
+}
 async function stats(res) {
   const snap=await db.ref('hojasFinancieras').get();
   const values=Object.values(snap.val()||{});
@@ -226,6 +263,8 @@ export async function handler(req,res) {
     if(url.pathname.startsWith('/api/admin/')) {
       if(!adminAuthorized(req))return error(res,403,'Usa tu enlace privado de administración');
       if(req.method==='GET'&&url.pathname==='/api/admin/sheets')return await sheets(res);
+      if(req.method==='GET'&&url.pathname==='/api/admin/periods')return await getPeriods(res);
+      if(req.method==='POST'&&url.pathname==='/api/admin/period-action')return await changeAdminPeriod(req,res);
       if(req.method==='POST'&&url.pathname==='/api/admin/action')return await action(req,res);
       if(req.method==='GET'&&url.pathname==='/api/admin/pdf')return await pdf(req,res,url);
     }
