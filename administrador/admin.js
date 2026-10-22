@@ -424,6 +424,11 @@ function updateStats() {
   $('statMoney').textContent = currency(money);
 }
 
+function hasPendingRates(sheet) {
+  return !Array.isArray(sheet.actividades) || sheet.actividades.some(row =>
+    row.valueHour === null || row.valueHour === undefined || row.valueHour === '');
+}
+
 function renderTable() {
   const tbody = $('sheetRows');
   tbody.replaceChildren();
@@ -439,7 +444,7 @@ function renderTable() {
     addCell(tr, item.carrera || '—');
     addCell(tr, String(item.totales?.clases ?? item.actividades?.length ?? 0), 'num');
     addCell(tr, number(item.totales?.horas || 0), 'num');
-    addCell(tr, currency(item.totales?.valor || 0), 'money');
+    addCell(tr, hasPendingRates(item) ? 'Pendiente' : currency(item.totales?.valor || 0), 'money');
     addCell(tr, formatDateTime(item.fechaEnvio));
     const action = document.createElement('td');
     const button = document.createElement('button');
@@ -656,7 +661,8 @@ function exportExcel() {
     Periodo: r.periodo?.etiqueta || '',
     Clases: r.totales?.clases || 0,
     Horas: r.totales?.horas || 0,
-    Valor_estimado: r.totales?.valor || 0,
+    Valor_estimado: hasPendingRates(r) ? '' : (r.totales?.valor || 0),
+    Tarifa_pendiente: hasPendingRates(r) ? 'Sí' : 'No',
     Evidencias: r.evidencias || 0,
     Observacion_admin: r.observacionAdmin || '',
     Fecha_envio: formatDateTime(r.fechaEnvio),
