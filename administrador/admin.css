@@ -65,3 +65,22 @@ dialog::backdrop{background:rgba(16,25,40,.58)}
 .toast.show{opacity:1;transform:translateY(0)}
 @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}.filters{grid-template-columns:1fr 1fr}.dialog-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.topbar{padding:8px 10px}.brand img{width:82px}.brand span{display:none}.header-link{font-size:10px;padding:6px 8px}main{width:calc(100% - 16px);margin-top:10px}.page-heading{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr 1fr}.filters,.dialog-grid,.activity-edit-grid{grid-template-columns:1fr}.activity-edit-grid .full{grid-column:auto}.dialog-actions .btn{flex:1 1 45%}}
+
+/* Control de períodos lectivos del administrador */
+.periods-card{background:#fff;border:1px solid #dfe5ee;border-radius:14px;padding:15px;box-shadow:var(--shadow)}
+.periods-header{display:flex;justify-content:space-between;align-items:start;margin-bottom:9px}
+.periods-header h2{font-size:17px;margin:0 0 4px}
+.periods-header p{font-size:12px;margin:0}
+.periods-form{display:grid;grid-template-columns:1.1fr .75fr 1.1fr .75fr auto;align-items:end;gap:10px}
+.periods-form label{gap:4px}
+.periods-form input,.periods-form select,.periods-form button{min-height:37px}
+.periods-list{display:grid;gap:7px;margin-top:13px}
+.period-row{display:flex;align-items:center;gap:12px;background:#f7f9fc;border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.period-row strong{flex:1;font-size:12px}
+.period-row .btn{min-width:83px}
+.period-label{font-size:10px;font-weight:800;color:#657386}
+.period-label.active{color:var(--success)}
+.periods-empty{margin:0;font-size:12px}
+.periods-hint{color:var(--muted);font-size:11px;margin:11px 0 0}
+@media(max-width:950px){.periods-form{grid-template-columns:1fr .7fr 1fr .7fr}.periods-form button{grid-column:1/-1}}
+@media(max-width:550px){.periods-form{grid-template-columns:1fr 1fr}.period-row{flex-wrap:wrap}}
