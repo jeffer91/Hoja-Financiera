@@ -17,6 +17,8 @@ const CONCEPT = 'Clases de refuerzo por carrera';
 const DRAFT = 'hoja-financiera-draft-v1';
 const TITLES = 'hoja-financiera-titles-v1';
 const PERIODS_PATH = 'periodosHojaFinanciera';
+const INITIAL_PERIOD_ID = '2026-02_2026-08';
+const INITIAL_PERIOD = Object.freeze({id: INITIAL_PERIOD_ID, mesInicio:2, anioInicio:2026, mesFin:8, anioFin:2026, etiqueta:'Febrero 2026 - Agosto 2026'});
 const $ = id => document.getElementById(id);
 const form = $('financeForm');
 const list = $('activities');
@@ -26,7 +28,9 @@ let currentWizardPage = 1;
 let teacherSource = '';
 let lookupSequence = 0;
 const validatedPages = new Set();
-let activePeriod = null;
+let availablePeriods = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
+let desiredPeriodId = INITIAL_PERIOD_ID;
+let activePeriod = {...INITIAL_PERIOD};
 let periodState = 'loading';
 let submissionInProgress = false;
 let documentServiceReady = false;
@@ -58,51 +62,53 @@ function validPeriod(entry) {
     && anioFin * 12 + mesFin >= anioInicio * 12 + mesInicio;
 }
 
-function selectActivePeriod(data) {
-  const id = data && typeof data.activoId === 'string' ? data.activoId : null;
-  const entry = id && data.periodos && data.periodos[id];
-  if (!id || !validPeriod(entry)) return null;
-  const label = MONTHS[entry.mesInicio - 1] + ' ' + entry.anioInicio +
-    ' - ' + MONTHS[entry.mesFin - 1] + ' ' + entry.anioFin;
-  return {...entry, id, etiqueta:label};
+function renderPeriodSelector() {
+  const control = $('periodSelect');
+  const selected = correctionTarget?.periodo || activePeriod || INITIAL_PERIOD;
+  const choices = {...availablePeriods};
+  if(correctionTarget?.periodo?.id)choices[correctionTarget.periodo.id]=correctionTarget.periodo;
+  control.replaceChildren();
+  for(const [id,entry] of Object.entries(choices)) {
+    const option=document.createElement('option');
+    option.value=id;
+    option.textContent=entry.etiqueta || id;
+    control.append(option);
+  }
+  control.value=selected.id;
+  control.disabled=!!correctionTarget;
 }
 
 function setActivePeriod(data) {
-  activePeriod = selectActivePeriod(data);
-  periodState = 'ready';
+  const choices = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
+  for(const [id,entry] of Object.entries(data?.periodos || {})) {
+    if(validPeriod(entry) && /^\d{4}-\d{2}_\d{4}-\d{2}$/.test(id)) {
+      choices[id]={...entry,id,etiqueta:entry.etiqueta || (MONTHS[entry.mesInicio-1]+' '+entry.anioInicio+' - '+MONTHS[entry.mesFin-1]+' '+entry.anioFin)};
+    }
+  }
+  availablePeriods=choices;
+  activePeriod=availablePeriods[desiredPeriodId]||availablePeriods[INITIAL_PERIOD_ID];
+  periodState='ready';
+  renderPeriodSelector();
   renderPeriodAvailability();
   updateAll();
 }
 
 function renderPeriodAvailability() {
-  const banner = $('periodUnavailable');
-  if (activePeriod || correctionTarget?.periodo) {
-    banner.hidden = true;
-  } else {
-    banner.hidden = false;
-    banner.textContent = periodState === 'loading'
-      ? 'Verificando la disponibilidad del formulario…'
-      : periodState === 'error'
-        ? 'No se pudo consultar el período autorizado. Contacta a Titulación.'
-        : 'No hay un período lectivo activo. Titulación debe habilitarlo antes de enviar una hoja.';
-  }
-  ['printBtn','pdfBtn'].forEach(id => { $(id).disabled = !activePeriod && !correctionTarget?.periodo; });
-  $('submitAdminBtn').disabled = (!activePeriod && !correctionTarget?.periodo) || !documentServiceReady;
+  const selected=correctionTarget?.periodo || activePeriod;
+  const banner=$('periodUnavailable');
+  banner.hidden=!!selected;
+  if(!selected)banner.textContent='Selecciona un período lectivo válido.';
+  ['printBtn','pdfBtn'].forEach(id => {$(id).disabled=!selected;});
+  $('submitAdminBtn').disabled=!selected || !documentServiceReady;
 }
 
 function listenActivePeriod() {
+  renderPeriodSelector();
   renderPeriodAvailability();
-  if (!db) {
-    periodState = 'error';
+  void apiRequest('/api/periods').then(data=>setActivePeriod(data)).catch(error=>{
+    console.warn('No se pudo consultar el catálogo de períodos; se mantiene el período inicial.',error);
+    periodState='error';
     renderPeriodAvailability();
-    return;
-  }
-  onValue(ref(db, PERIODS_PATH), snapshot => setActivePeriod(snapshot.val()), error => {
-    console.error('No se pudo consultar el período activo:', error);
-    activePeriod = null;
-    periodState = 'error';
-    renderPeriodAvailability();
-    updateAll();
   });
 }
 
@@ -129,6 +135,14 @@ function bind() {
     if (e.key === 'Enter') { e.preventDefault(); lookupTeacher(); }
   });
   $('teacherTitle').addEventListener('change', rememberTitle);
+  $('periodSelect').addEventListener('change', () => {
+    if (correctionTarget) return;
+    desiredPeriodId=$('periodSelect').value;
+    activePeriod=availablePeriods[desiredPeriodId]||availablePeriods[INITIAL_PERIOD_ID];
+    renderPeriodAvailability();
+    updateAll();
+    saveDraft(false);
+  });
   $('saveDraftBtn').addEventListener('click', () => saveDraft(true));
   $('printBtn').addEventListener('click', () => { if (validateForm()) window.print(); });
   $('submitAdminBtn').addEventListener('click', submitToAdmin);
@@ -586,6 +600,7 @@ async function loadCorrection(id,capability) {
       return;
     }
     correctionTarget={id,capability,periodo:result.periodo};
+    renderPeriodSelector();
     $('cedula').value=result.cedula||'';
     $('teacherName').value=result.docente||'';
     $('teacherTitle').value=result.tituloSuperior||'';
@@ -695,7 +710,7 @@ async function submitToAdmin() {
       });
       correctionTarget=null;
     } else {
-      result=await apiRequest('/api/submit',{method:'POST',data:{hoja,pdf}});
+      result=await apiRequest('/api/submit',{method:'POST',data:{hoja,pdf,periodoId:activePeriod?.id}});
       savePrivateSheet(result.id,hoja.cedula,result.capability);
     }
     $('signedPdfFile').value='';
@@ -763,6 +778,7 @@ function saveDraft(showMessage) {
     cedula:$('cedula').value, teacherName:$('teacherName').value,
     teacherSource:teacherSource,
     teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
+    periodId:correctionTarget?.periodo?.id||activePeriod?.id||INITIAL_PERIOD_ID,
     activities:activities()
   };
   try { localStorage.setItem(DRAFT, JSON.stringify(data)); }
@@ -780,6 +796,9 @@ function restoreDraft() {
       if (d[k] != null) $(k).value = d[k];
     });
     teacherSource = d.teacherName ? (d.teacherSource === 'firebase' ? 'firebase' : 'manual') : '';
+    desiredPeriodId = typeof d.periodId==='string' ? d.periodId : INITIAL_PERIOD_ID;
+    activePeriod = availablePeriods[desiredPeriodId] || availablePeriods[INITIAL_PERIOD_ID];
+    renderPeriodSelector();
     $('teacherName').readOnly = teacherSource !== 'manual';
     $('teacherCareer').readOnly = teacherSource !== 'manual';
     $('manualTeacherBtn').textContent = teacherSource === 'manual' ? 'Ingreso manual activo' : '+ Docente nuevo';
@@ -801,6 +820,11 @@ function clearForm() {
   try { localStorage.removeItem(DRAFT); } catch (error) { console.warn(error); }
   clearAllValidation();
   form.reset();
+  correctionTarget = null;
+  desiredPeriodId = INITIAL_PERIOD_ID;
+  activePeriod = availablePeriods[INITIAL_PERIOD_ID];
+  renderPeriodSelector();
+  renderPeriodAvailability();
   lookupSequence++;
   teacherSource = '';
   $('teacherName').readOnly = true;
