@@ -485,3 +485,31 @@ body.pdf-export .pdf-page:last-child {
 }
 .period-choice select:disabled {opacity: .8;cursor: not-allowed}
 .period-choice .helper {font-weight: normal;line-height: 1.35}
+
+
+/* Keep hidden evidence absent in both export and print. */
+.pdf-page[hidden] { display: none !important; }
+@page { size: A4; margin: 0; }
+@media print {
+  .toast { display: none !important; }
+  .pdf-page:last-child { break-after: auto; }
+  .pdf-page { min-height: 0; }
+  thead { display: table-header-group; }
+}
+/* Avoid rounding a full-height section onto an extra blank A4 page. */
+body.pdf-export .pdf-page { min-height: 0; }
+body.pdf-export .financial-page { page-break-after: auto; }
+body.pdf-export .evidence-page { page-break-before: always; }
+.evidence-grid { grid-template-columns: 35mm minmax(0, 1fr); }
+.evidence-grid > div { min-width: 0; }
+.evidence-url, .evidence-url a,
+body.pdf-export .evidence-url, body.pdf-export .evidence-url a {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+body.pdf-export .pdf-page[hidden] {
+  page-break-before: auto !important;
+  page-break-after: auto !important;
+  break-before: auto !important;
+  break-after: auto !important;
+}

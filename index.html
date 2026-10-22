@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d2f56" />
   <meta name="description" content="Generador institucional de hojas financieras para clases de refuerzo por carrera." />
   <title>Hoja Financiera | ITSQMET</title>
-  <link rel="stylesheet" href="styles.css?v=20261022-r2" />
+  <link rel="stylesheet" href="styles.css?v=20261022-generator-v3" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -19,7 +19,7 @@
       </div>
     </div>
     <div class="topbar-actions">
-      <div class="topbar-status" id="firebaseStatus" aria-live="polite">Consultando Firebase…</div>
+      <div class="topbar-status" id="firebaseStatus" aria-live="polite">Consulta por cédula disponible</div>
     </div>
   </header>
 
@@ -45,7 +45,7 @@
             <span class="wizard-line"></span>
             <span class="wizard-step" data-step-indicator="2"><b>2</b><small>Clases</small></span>
             <span class="wizard-line"></span>
-            <span class="wizard-step" data-step-indicator="3"><b>3</b><small>Enviar</small></span>
+            <span class="wizard-step" data-step-indicator="3"><b>3</b><small>Generar</small></span>
           </div>
         </nav>
 
@@ -61,7 +61,7 @@
                 <select id="periodSelect" required>
                   <option value="2026-02_2026-08" selected>Febrero 2026 - Agosto 2026</option>
                 </select>
-                <small class="helper">El período seleccionado aparecerá en el PDF y en la hoja firmada.</small>
+                <small class="helper">El período seleccionado aparecerá en el PDF.</small>
               </label>
               
               <label>Cédula
@@ -70,17 +70,15 @@
                   <button type="button" class="btn btn-secondary" id="lookupBtn">Buscar</button>
                 </div>
                 <small id="lookupMessage" class="helper" role="status" aria-live="polite"></small>
-                <button type="button" class="btn btn-secondary" id="statusLookupBtn" style="margin-top:8px;">Consultar estado de mis hojas</button>
-                <div id="statusResults" class="submission-note" hidden aria-live="polite" style="margin-top:9px;"></div>
               </label>
               <label>Apellidos y nombres
-                <input id="teacherName" placeholder="Automático o escribe un docente nuevo" required readonly />
+                <input id="teacherName" maxlength="150" placeholder="Automático o escribe un docente nuevo" required readonly />
               </label>
               <label>Título superior
-                <input id="teacherTitle" placeholder="Ej. Magíster en Sistemas Informáticos" required />
+                <input id="teacherTitle" maxlength="200" placeholder="Ej. Magíster en Sistemas Informáticos" required />
               </label>
               <label>Carrera detectada <span class="optional">opcional</span>
-                <input id="teacherCareer" placeholder="Automática o ingresa la carrera" readonly />
+                <input id="teacherCareer" maxlength="180" placeholder="Automática o ingresa la carrera" readonly />
               </label>
             </div>
           </section>
@@ -115,7 +113,7 @@
 
           <div class="wizard-nav">
             <button type="button" class="btn btn-ghost" data-prev-page="1">Anterior</button>
-            <button type="button" class="btn btn-primary wizard-next" data-next-page="3">Revisar y enviar</button>
+            <button type="button" class="btn btn-primary wizard-next" data-next-page="3">Revisar y generar</button>
           </div>
         </section>
 
@@ -123,7 +121,7 @@
           <section class="form-section first-section">
             <div class="section-title">
               <span class="step">5</span>
-              <div><h2>Resumen</h2><p>Confirma tus datos, descarga el PDF y después súbelo firmado.</p></div>
+              <div><h2>Resumen</h2><p>Confirma tus datos y descarga la hoja financiera.</p></div>
             </div>
 
             <div class="review-card">
@@ -137,19 +135,7 @@
               <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
             </section>
 
-            <section id="documentServiceStatus" class="submission-note" role="status" aria-live="polite">Comprobando si la recepción de PDF firmados está disponible…</section>
-            <section class="submission-note" aria-labelledby="signHeading" style="margin-bottom:12px;">
-              <strong id="signHeading">Proceso de firma y entrega</strong>
-              <span>1. Descarga el PDF institucional sin firma. 2. Fírmalo de la manera que prefieras. 3. Selecciona y sube el PDF firmado. Solo entonces quedará recibido.</span>
-              <label style="display:block;margin-top:12px;font-weight:700;color:#153d5e">Seleccionar PDF firmado (máximo 10 MB)
-                <input type="file" id="signedPdfFile" accept=".pdf,application/pdf" style="width:100%;margin-top:6px;" />
-              </label>
-              <small id="signedFileStatus" role="status">Todavía no has seleccionado el documento firmado.</small>
-            </section>
-            <div class="submission-note" id="submissionNote">
-              <strong>Listo para generar el PDF</strong>
-              <span>El valor por hora permanece vacío. El registro se recibirá cuando subas el PDF firmado.</span>
-            </div>
+            <div class="submission-note"><strong>Listo para generar el PDF</strong><span>El valor por hora permanece vacío para Talento Humano. Descarga tu hoja para finalizar; no necesitas subirla a esta aplicación.</span></div>
           </section>
 
           <div class="wizard-nav final-nav">
@@ -157,8 +143,7 @@
             <div class="final-actions">
               <button type="button" class="btn btn-ghost" id="saveDraftBtn">Guardar borrador</button>
               <button type="button" class="btn btn-secondary" id="printBtn">Imprimir</button>
-              <button type="submit" class="btn btn-secondary" id="pdfBtn">Descargar PDF</button>
-              <button type="button" class="btn btn-primary" id="submitAdminBtn">Subir PDF firmado</button>
+              <button type="submit" class="btn btn-primary" id="pdfBtn">Descargar PDF</button>
             </div>
           </div>
         </section>
@@ -237,19 +222,20 @@
           <input class="activity-date" type="date" required />
         </label>
         <label>Horas trabajadas
-          <input class="activity-hours" type="number" min="0.25" step="0.25" value="2" required />
+          <input class="activity-hours" type="number" min="0.25" max="24" step="0.25" value="2" required />
         </label>
         <label class="full-width">Observaciones
-          <textarea class="activity-notes" rows="2" placeholder="Ej. Revisión de introducción, metodología y correcciones del artículo académico." required></textarea>
+          <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Ej. Revisión de introducción, metodología y correcciones del artículo académico." required></textarea>
         </label>
         <label class="full-width">Enlace de grabación o evidencia <span class="optional">opcional</span>
-          <input class="activity-evidence" type="url" placeholder="https://..." />
+          <input class="activity-evidence" maxlength="2048" type="url" placeholder="https://..." />
         </label>
       </div>
     </article>
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261022-r2"></script>
+  <script type="module" src="app.js?v=20261022-generator-v3"></script>
 </body>
 </html>
+

@@ -1,7 +1,7 @@
 export const API_BASE = 'https://hoja-financiera-api.onrender.com';
 export async function apiRequest(path,{method='GET',data,adminToken,sheetToken}={}) {
   const response=await fetch(API_BASE+path,{
-    method,cache:'no-store',
+    method,cache:'no-store',signal:AbortSignal.timeout(10000),
     headers:{...(data===undefined?{}:{'Content-Type':'application/json'}),
       ...(adminToken?{'X-Admin-Capability':adminToken}:{}),
       ...(sheetToken?{'X-Sheet-Capability':sheetToken}:{})},
@@ -12,3 +12,4 @@ export async function apiRequest(path,{method='GET',data,adminToken,sheetToken}=
   if(!response.ok)throw Error(payload.error||'Error HTTP '+response.status);
   return payload;
 }
+

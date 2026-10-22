@@ -1,29 +1,15 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {apiRequest} from './api-config.js';
-import { getDatabase, ref, get, push, set, onValue } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
-
-const firebaseConfig = {
-  apiKey: 'AIzaSyANtWmjXdlHkf-LO4t2gtpyymmjeEr2emI',
-  authDomain: 'repaso-fire-d8ceb.firebaseapp.com',
-  databaseURL: 'https://repaso-fire-d8ceb-default-rtdb.firebaseio.com',
-  projectId: 'repaso-fire-d8ceb',
-  storageBucket: 'repaso-fire-d8ceb.firebasestorage.app',
-  messagingSenderId: '1080713449199',
-  appId: '1:1080713449199:web:a94fd6c6e26766b4e2551a'
-};
-
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const CONCEPT = 'Clases de refuerzo por carrera';
 const DRAFT = 'hoja-financiera-draft-v1';
 const TITLES = 'hoja-financiera-titles-v1';
-const PERIODS_PATH = 'periodosHojaFinanciera';
 const INITIAL_PERIOD_ID = '2026-02_2026-08';
 const INITIAL_PERIOD = Object.freeze({id: INITIAL_PERIOD_ID, mesInicio:2, anioInicio:2026, mesFin:8, anioFin:2026, etiqueta:'Febrero 2026 - Agosto 2026'});
 const $ = id => document.getElementById(id);
 const form = $('financeForm');
 const list = $('activities');
 const template = $('activityTemplate');
-const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y enviar'];
+const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y generar'];
 let currentWizardPage = 1;
 let teacherSource = '';
 let lookupSequence = 0;
@@ -32,27 +18,14 @@ let availablePeriods = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
 let desiredPeriodId = INITIAL_PERIOD_ID;
 let activePeriod = {...INITIAL_PERIOD};
 let periodState = 'loading';
-let submissionInProgress = false;
-let documentServiceReady = false;
-const PRIVATE_SHEETS_KEY = 'hf-private-sheet-links-v1';
-let correctionTarget = null;
-
-let db = null;
-try {
-  db = getDatabase(initializeApp(firebaseConfig));
-  setFirebaseStatus('Firebase preparado', true);
-} catch (e) {
-  console.error(e);
-  setFirebaseStatus('Firebase no disponible', false);
-}
-
+let exporting = false;
+let draftTimer;
 bind();
 if (!restoreDraft()) addActivity();
 updateAll();
 goToPage(1, false);
 listenActivePeriod();
-void checkDocumentService();
-checkPrivateSheetLink();
+
 
 function validPeriod(entry) {
   if (!entry || typeof entry !== 'object') return false;
@@ -64,9 +37,8 @@ function validPeriod(entry) {
 
 function renderPeriodSelector() {
   const control = $('periodSelect');
-  const selected = correctionTarget?.periodo || activePeriod || INITIAL_PERIOD;
+  const selected = activePeriod || INITIAL_PERIOD;
   const choices = {...availablePeriods};
-  if(correctionTarget?.periodo?.id)choices[correctionTarget.periodo.id]=correctionTarget.periodo;
   control.replaceChildren();
   for(const [id,entry] of Object.entries(choices)) {
     const option=document.createElement('option');
@@ -75,7 +47,6 @@ function renderPeriodSelector() {
     control.append(option);
   }
   control.value=selected.id;
-  control.disabled=!!correctionTarget;
 }
 
 function setActivePeriod(data) {
@@ -94,12 +65,11 @@ function setActivePeriod(data) {
 }
 
 function renderPeriodAvailability() {
-  const selected=correctionTarget?.periodo || activePeriod;
+  const selected=activePeriod;
   const banner=$('periodUnavailable');
   banner.hidden=!!selected;
   if(!selected)banner.textContent='Selecciona un período lectivo válido.';
   ['printBtn','pdfBtn'].forEach(id => {$(id).disabled=!selected;});
-  $('submitAdminBtn').disabled=!selected || !documentServiceReady;
 }
 
 function listenActivePeriod() {
@@ -115,6 +85,8 @@ function listenActivePeriod() {
 function bind() {
   form.addEventListener('input', updateAll);
   form.addEventListener('change', updateAll);
+  for (const event of ['input','change']) form.addEventListener(event, scheduleDraft);
+  window.addEventListener('pagehide', () => saveDraft(false));
   form.addEventListener('submit', async e => {
     e.preventDefault();
     if (validateForm()) await downloadPdf();
@@ -127,7 +99,7 @@ function bind() {
       $('cedula').focus();
       return;
     }
-    manualTeacher('Registro nuevo: completa los datos; el administrador podrá verificarlos.');
+    manualTeacher('Completa y revisa los datos del docente.');
     $('teacherName').focus();
   });
   $('cedula').addEventListener('input', cedulaChanged);
@@ -136,7 +108,6 @@ function bind() {
   });
   $('teacherTitle').addEventListener('change', rememberTitle);
   $('periodSelect').addEventListener('change', () => {
-    if (correctionTarget) return;
     desiredPeriodId=$('periodSelect').value;
     activePeriod=availablePeriods[desiredPeriodId]||availablePeriods[INITIAL_PERIOD_ID];
     renderPeriodAvailability();
@@ -145,12 +116,6 @@ function bind() {
   });
   $('saveDraftBtn').addEventListener('click', () => saveDraft(true));
   $('printBtn').addEventListener('click', () => { if (validateForm()) window.print(); });
-  $('submitAdminBtn').addEventListener('click', submitToAdmin);
-  $('statusLookupBtn').addEventListener('click', consultStatus);
-  $('signedPdfFile').addEventListener('change', () => {
-    const file=$('signedPdfFile').files[0];
-    $('signedFileStatus').textContent=file?file.name+' · '+Math.round(file.size/1024)+' KB':'Todavía no has seleccionado el PDF firmado.';
-  });
   $('clearBtn').addEventListener('click', clearForm);
 
   document.querySelectorAll('[data-next-page]').forEach(btn => {
@@ -162,6 +127,7 @@ function bind() {
 }
 
 function addActivity(data) {
+  if (list.children.length >= 80) return toast('Se permiten hasta 80 clases por hoja.');
   data = data || {};
   const frag = template.content.cloneNode(true);
   const card = frag.querySelector('.activity-card');
@@ -171,11 +137,12 @@ function addActivity(data) {
   card.querySelector('.activity-evidence').value = data.evidence || '';
   card.querySelector('.remove-activity').addEventListener('click', () => {
     if (list.children.length <= 1) return toast('Debe existir al menos una clase.');
-    card.remove(); renumber(); updateAll();
+    card.remove(); renumber(); updateAll(); scheduleDraft();
   });
   list.appendChild(card);
   renumber();
   updateAll();
+  scheduleDraft();
 }
 
 function renumber() {
@@ -235,7 +202,7 @@ function renderPreview(rows, totalHours) {
   });
 
   const ev = rows.filter(r => r.evidence);
-  $('evidencePage').hidden = false;
+  $('evidencePage').hidden = ev.length === 0;
   $('evName').textContent = $('teacherName').value.trim() || '—';
   $('evCareer').textContent = $('teacherCareer').value.trim() || '—';
   $('evPeriod').textContent = period || '—';
@@ -262,7 +229,7 @@ function addPair(grid, label, value, url) {
   a.className = 'label'; a.textContent = label;
   const b = document.createElement('div');
   if (url) b.className = 'evidence-url';
-  if(url && /^https:\/\//i.test(value)) {
+  if(url && validEvidenceUrl(value)) {
     const link=document.createElement('a');link.href=value;link.textContent=value;
     link.target='_blank';link.rel='noopener noreferrer';link.style.overflowWrap='anywhere';
     b.appendChild(link);
@@ -280,16 +247,17 @@ async function lookupTeacher() {
     msg.classList.add('error');
     return;
   }
-  if (!db) return manualTeacher('Firebase no disponible. Completa los datos del docente nuevo.');
   const request = ++lookupSequence;
   $('lookupBtn').disabled = true;
   $('lookupBtn').textContent = 'Buscando…';
   msg.textContent = 'Consultando Firebase…';
   try {
-    const snap = await get(ref(db, 'patrociniosGenerados/' + cedula));
+    const response = await fetch('https://repaso-fire-d8ceb-default-rtdb.firebaseio.com/patrociniosGenerados/' + cedula + '.json', {signal: AbortSignal.timeout(8000)});
+    if (!response.ok) throw Error('Consulta no disponible');
+    const value = await response.json();
     if (request !== lookupSequence || $('cedula').value !== cedula) return;
-    if (!snap.exists()) return manualTeacher('No consta en Firebase. Completa los datos del docente nuevo.');
-    const record = findRecord(snap.val(), cedula);
+    if (!value) return manualTeacher('No consta en Firebase. Completa los datos del docente nuevo.');
+    const record = findRecord(value, cedula);
     if (!record || !record.docente) return manualTeacher('No se encontró el nombre. Puedes ingresarlo manualmente.');
     teacherSource = 'firebase';
     $('teacherName').value = clean(record.docente);
@@ -307,7 +275,7 @@ async function lookupTeacher() {
     console.error(e);
     if (request !== lookupSequence || $('cedula').value !== cedula) return;
     setFirebaseStatus('Sin acceso a la consulta', false);
-    manualTeacher('Firebase no pudo consultarse. Ingresa los datos; quedarán pendientes de verificación.');
+    manualTeacher('Firebase no pudo consultarse. Puedes completar los datos manualmente.');
   } finally {
     if (request === lookupSequence) {
       $('lookupBtn').disabled = false;
@@ -368,9 +336,10 @@ function rememberTitle() {
   const title = $('teacherTitle').value.trim();
   if (!/^\d{10}$/.test(cedula) || !title) return;
   let data = {};
-  try { data = JSON.parse(localStorage.getItem(TITLES) || '{}'); } catch (_) {}
+  try { data = JSON.parse(localStorage.getItem(TITLES) || '{}') || {}; } catch (_) {}
+  if (typeof data !== 'object' || Array.isArray(data)) data = {};
   data[cedula] = title;
-  localStorage.setItem(TITLES, JSON.stringify(data));
+  try { localStorage.setItem(TITLES, JSON.stringify(data)); } catch (_) {}
 }
 
 function restoreTitle(cedula) {
@@ -381,14 +350,14 @@ function restoreTitle(cedula) {
 }
 
 function periodLabel() {
-  const period=correctionTarget?.periodo||activePeriod;
+  const period=activePeriod;
   return period ? period.etiqueta : '';
 }
 
 function ensurePeriod() {
-  if (correctionTarget?.periodo || activePeriod) return true;
+  if (activePeriod) return true;
   renderPeriodAvailability();
-  toast('No hay un período activo. El administrador debe habilitarlo antes de enviar o descargar.');
+  toast('Selecciona un período válido antes de descargar.');
   return false;
 }
 
@@ -464,7 +433,7 @@ function validClassDate(date) {
   const [y,m,d] = date.split('-').map(Number);
   const actual = new Date(y, m-1, d);
   if (actual.getFullYear() !== y || actual.getMonth() !== m-1 || actual.getDate() !== d) return false;
-  const period=correctionTarget?.periodo||activePeriod;
+  const period=activePeriod;
   if (!period) return true;
   const month = date.slice(0,7);
   return month >= period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') &&
@@ -473,7 +442,7 @@ function validClassDate(date) {
 
 function defaultClassDate() {
   const now = today();
-  const period=correctionTarget?.periodo||activePeriod;
+  const period=activePeriod;
   if (!period || validClassDate(now)) return now;
   return period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') + '-01';
 }
@@ -492,7 +461,7 @@ function validateActivityCard(card) {
 
   const badDate = !date.value || !date.checkValidity() || !validClassDate(date.value);
   const badHours = !hours.value.trim() || !hours.checkValidity() ||
-    !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0;
+    !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0 || Number(hours.value) > 24;
   const badNotes = !notes.value.trim();
   // La evidencia es opcional; si hay un enlace, debe ser válido.
   const badEvidence = !!evidence.value.trim() && (!evidence.checkValidity() || !validEvidenceUrl(evidence.value.trim()));
@@ -557,201 +526,17 @@ function fail(message, el) {
 }
 
 
-function privateSheets() {
-  try{return JSON.parse(localStorage.getItem(PRIVATE_SHEETS_KEY)||'{}');}catch{return {};}
-}
-function savePrivateSheet(id,cedula,capability) {
-  try{
-    const all=privateSheets();
-    all[id]={cedula,capability};
-    localStorage.setItem(PRIVATE_SHEETS_KEY,JSON.stringify(all));
-  }catch(error){console.warn('No se guardó el enlace privado:',error);}
-}
-function sheetCapability(id) {
-  const all=privateSheets();
-  const query=new URLSearchParams(location.search);
-  if(query.get('hoja')===id&&query.get('clave'))return query.get('clave');
-  return all[id]?.capability||'';
-}
-function readSignedPdf(file) {
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onerror=()=>reject(new Error('No fue posible leer el PDF seleccionado'));
-    reader.onload=()=>resolve(reader.result);
-    reader.readAsDataURL(file);
-  });
-}
-function submissionPayload() {
-  const rows=activities();
-  return {
-    cedula:$('cedula').value.trim(),
-    docente:$('teacherName').value.trim(),
-    tituloSuperior:$('teacherTitle').value.trim(),
-    carrera:$('teacherCareer').value.trim(),
-    origenDocente:teacherSource==='manual'?'manual':'firebase',
-    actividades:rows
-  };
-}
-async function loadCorrection(id,capability) {
-  try {
-    const result=await apiRequest('/api/private/sheet?id='+encodeURIComponent(id),{sheetToken:capability});
-    if(result.estado!=='Observada') {
-      toast('Esta hoja no está devuelta para corrección. Estado: '+result.estado);
-      return;
-    }
-    correctionTarget={id,capability,periodo:result.periodo};
-    renderPeriodSelector();
-    $('cedula').value=result.cedula||'';
-    $('teacherName').value=result.docente||'';
-    $('teacherTitle').value=result.tituloSuperior||'';
-    $('teacherCareer').value=result.carrera||'';
-    teacherSource='manual';
-    $('teacherName').readOnly=false;
-    $('teacherCareer').readOnly=false;
-    $('manualTeacherBtn').textContent='Edición de hoja observada';
-    list.replaceChildren();
-    for(const activity of result.actividades||[])addActivity(activity);
-    if(!list.children.length)addActivity();
-    $('statusResults').hidden=false;
-    $('statusResults').replaceChildren();
-    const note=document.createElement('strong');
-    note.textContent='Observaciones de tu hoja:';
-    const msg=document.createElement('p');
-    msg.textContent=result.observacionAdmin||'Corrige y vuelve a subir el PDF firmado.';
-    $('statusResults').append(note,msg);
-    renderPeriodAvailability();
-    updateAll();
-    goToPage(1,false);
-    toast('Hoja observada recuperada. Corrige, descarga otro PDF y súbelo firmado.');
-  }catch(e){toast('No se pudo recuperar la hoja privada: '+e.message);}
-}
-function checkPrivateSheetLink() {
-  const params=new URLSearchParams(location.search);
-  const id=params.get('hoja'),capability=params.get('clave');
-  if(id&&capability)void loadCorrection(id,capability);
-}
-async function consultStatus() {
-  const cedula=$('cedula').value.replace(/\D/g,'');
-  if(!/^\d{10}$/.test(cedula)){toast('Ingresa tu cédula de 10 dígitos.');return;}
-  const box=$('statusResults');
-  box.hidden=false;
-  box.textContent='Buscando hojas registradas…';
-  try {
-    const result=await apiRequest('/api/status?cedula='+encodeURIComponent(cedula));
-    box.replaceChildren();
-    if(!result.hojas.length){
-      box.textContent='No existen PDF firmados recibidos para esta cédula.';
-      correctionTarget=null;
-      return;
-    }
-    for(const h of result.hojas) {
-      const card=document.createElement('div');
-      card.style.cssText='border-bottom:1px solid #dce5ee;padding:8px 0';
-      const line=document.createElement('strong');line.textContent=h.periodo+' · '+h.estado;
-      card.append(line);
-      if(h.estado==='Observada') {
-        const cap=sheetCapability(h.id);
-        if(cap) {
-          const btn=document.createElement('button');btn.type='button';btn.className='btn btn-secondary';
-          btn.style.margin='6px 0 0';
-          btn.textContent='Preparar corrección de esta hoja';
-          btn.addEventListener('click',()=>void loadCorrection(h.id,cap));
-          card.append(document.createElement('br'),btn);
-        } else {
-          const p=document.createElement('small');
-          p.textContent='Para corregirla necesitas el enlace privado que recibiste al subir el PDF.';
-          card.append(document.createElement('br'),p);
-        }
-      }
-      box.append(card);
-    }
-  } catch(e){box.textContent='No se pudo consultar el estado: '+e.message;}
-}
-async function checkDocumentService() {
-  const indicator=$('documentServiceStatus');
-  try {
-    const health=await apiRequest('/api/health');
-    documentServiceReady=health.ok===true;
-    if(documentServiceReady) {
-      indicator.textContent='Recepción de PDF firmados disponible.';
-      indicator.dataset.status='ready';
-    } else {
-      indicator.textContent=health.reason==='credentials-required'
-        ? 'La recepción de PDF firmados está pendiente de habilitación institucional. Puedes preparar y descargar tu hoja.'
-        : 'La recepción de PDF firmados no está disponible en este momento. Conserva el documento para subirlo después.';
-      indicator.dataset.status='unavailable';
-    }
-  } catch(e) {
-    documentServiceReady=false;
-    indicator.textContent='No es posible conectar con la recepción de PDF. Puedes descargar tu hoja e intentarlo más tarde.';
-    indicator.dataset.status='unavailable';
-  }
-  renderPeriodAvailability();
-}
-async function submitToAdmin() {
-  if(submissionInProgress)return;
-  if(!documentServiceReady)return toast('La recepción de PDF firmados aún no está disponible. Conserva tu PDF para enviarlo después.');
-  if(!validateForm())return;
-  const file=$('signedPdfFile').files?.[0];
-  if(!file)return fail('Selecciona el PDF que ya firmaste.', $('signedPdfFile'));
-  if(file.size>10*1024*1024||file.size<100||!file.name.toLowerCase().endsWith('.pdf'))
-    return fail('Solo se permiten archivos PDF de hasta 10 MB.', $('signedPdfFile'));
-  submissionInProgress=true;
-  const btn=$('submitAdminBtn');
-  btn.disabled=true;btn.textContent='Subiendo PDF firmado…';
-  try {
-    const pdf=await readSignedPdf(file);
-    const hoja=submissionPayload();
-    let result;
-    if(correctionTarget) {
-      result=await apiRequest('/api/revise',{
-        method:'POST',
-        data:{id:correctionTarget.id,capability:correctionTarget.capability,hoja,pdf}
-      });
-      correctionTarget=null;
-    } else {
-      result=await apiRequest('/api/submit',{method:'POST',data:{hoja,pdf,periodoId:activePeriod?.id}});
-      savePrivateSheet(result.id,hoja.cedula,result.capability);
-    }
-    $('signedPdfFile').value='';
-    $('signedFileStatus').textContent='Documento firmado recibido correctamente.';
-    setSubmissionNote('PDF firmado recibido','Hoja: '+result.id+' · Estado: '+result.estado+'. Conserva el enlace privado de tu hoja.',true);
-    const link=document.createElement('a');
-    link.href=location.origin+location.pathname+'?hoja='+encodeURIComponent(result.id)+'&clave='+encodeURIComponent(result.capability||sheetCapability(result.id));
-    link.textContent='Guardar enlace privado de la hoja';
-    link.style.display='block';link.style.marginTop='7px';
-    $('submissionNote').append(link);
-    toast('PDF firmado cargado y registrado.');
-    saveDraft(false);
-  } catch(e) {
-    console.error(e);
-    setSubmissionNote('No se recibió el archivo firmado',e.message,false);
-    toast('Error al subir el PDF: '+e.message);
-  } finally {
-    submissionInProgress=false;
-    btn.disabled=(!activePeriod&&!correctionTarget?.periodo)||!documentServiceReady;
-    btn.textContent='Subir PDF firmado';
-  }
-}
-
-function setSubmissionNote(title, detail, ok) {
-  const note = $('submissionNote');
-  note.replaceChildren();
-  const strong = document.createElement('strong');
-  strong.textContent = title;
-  const span = document.createElement('span');
-  span.textContent = detail;
-  note.append(strong, span);
-  note.style.borderColor = ok ? '#b9dfcc' : '#efc4c0';
-  note.style.background = ok ? '#f0fbf5' : '#fff6f5';
-}
-
 async function downloadPdf() {
+  if (exporting) return;
   if (!window.html2pdf) {
     toast('No se cargó el generador PDF. Usa Imprimir → Guardar como PDF.');
     window.print();
     return;
   }
+  exporting = true;
+  $('pdfBtn').disabled = true;
+  $('pdfBtn').textContent = 'Generando…';
+  saveDraft(false);
   document.body.classList.add('pdf-export');
   const filename = 'HOJA_FINANCIERA_' + fileSafe($('teacherName').value || 'DOCENTE') + '_' + fileSafe(periodLabel()) + '.pdf';
   const options = {
@@ -764,13 +549,23 @@ async function downloadPdf() {
   };
   try {
     toast('Generando PDF…');
+    await Promise.all([...$('pdfContent').querySelectorAll('img')].map(img => img.decode().catch(() => {})));
     await window.html2pdf().set(options).from($('pdfContent')).save();
+    toast('PDF generado. El proceso ha finalizado.');
   } catch (e) {
     console.error(e);
     toast('No se pudo descargar directamente. Usa Imprimir → Guardar como PDF.');
   } finally {
     document.body.classList.remove('pdf-export');
+    exporting = false;
+    $('pdfBtn').disabled = false;
+    $('pdfBtn').textContent = 'Descargar PDF';
   }
+}
+
+function scheduleDraft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => saveDraft(false), 400);
 }
 
 function saveDraft(showMessage) {
@@ -778,7 +573,7 @@ function saveDraft(showMessage) {
     cedula:$('cedula').value, teacherName:$('teacherName').value,
     teacherSource:teacherSource,
     teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
-    periodId:correctionTarget?.periodo?.id||activePeriod?.id||INITIAL_PERIOD_ID,
+    periodId:activePeriod?.id||INITIAL_PERIOD_ID,
     activities:activities()
   };
   try { localStorage.setItem(DRAFT, JSON.stringify(data)); }
@@ -792,6 +587,7 @@ function restoreDraft() {
   if (!raw) return false;
   try {
     const d = JSON.parse(raw);
+    if (!d || typeof d !== 'object' || !Array.isArray(d.activities)) return false;
     ['cedula','teacherName','teacherTitle','teacherCareer'].forEach(k => {
       if (d[k] != null) $(k).value = d[k];
     });
@@ -807,7 +603,7 @@ function restoreDraft() {
       $('lookupMessage').className = 'helper notice';
     }
     list.replaceChildren();
-    (d.activities && d.activities.length ? d.activities : [{}]).forEach(addActivity);
+    (d.activities.length ? d.activities.slice(0,80) : [{}]).forEach(addActivity);
     return true;
   } catch (e) {
     console.warn(e);
@@ -819,8 +615,8 @@ function clearForm() {
   if (!confirm('¿Deseas limpiar la hoja actual?')) return;
   try { localStorage.removeItem(DRAFT); } catch (error) { console.warn(error); }
   clearAllValidation();
+  clearTimeout(draftTimer);
   form.reset();
-  correctionTarget = null;
   desiredPeriodId = INITIAL_PERIOD_ID;
   activePeriod = availablePeriods[INITIAL_PERIOD_ID];
   renderPeriodSelector();
@@ -871,3 +667,4 @@ function setFirebaseStatus(text, ok) {
   el.textContent = text;
   el.style.opacity = ok ? '1' : '.75';
 }
+

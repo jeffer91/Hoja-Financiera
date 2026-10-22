@@ -53,14 +53,10 @@ test('Estadísticas públicas y datos privados están separados',()=>{
   assert.match(admin,/state\.token/);
   assert.match(admin,/privateHint/);
 });
-test('Los docentes descargan PDF primero y solo después pueden subir uno firmado',()=>{
+test('El flujo docente termina en generar y no sube documentos',()=>{
   assert.match(form,/id="pdfBtn"/);
-  assert.match(form,/id="signedPdfFile"/);
-  assert.match(form,/id="submitAdminBtn"/);
-  assert.match(teacher,/readSignedPdf\(file\)/);
-  assert.match(teacher,/\/api\/submit/);
-  assert.match(api,/function readPdf/);
-  assert.doesNotMatch(teacher,/set\(target,\s*payload\)/);
+  assert.doesNotMatch(form,/signedPdfFile|submitAdminBtn|statusLookupBtn/);
+  assert.doesNotMatch(teacher,/\/api\/submit|\/api\/revise|checkDocumentService|firebasejs/);
 });
 test('Solo PDF firmado se almacena en Storage y las versiones tienen nombre fijo',()=>{
   assert.match(api,/hojas-financieras\/.*firmadas\/v/);
@@ -74,15 +70,15 @@ test('La consulta por cédula no entrega cédulas ni documentos completos',()=>{
   assert.match(src,/cedula/);
   assert.match(src,/estado/);
   assert.doesNotMatch(src,/pdfBase64|capabilityHash|observacionAdmin/);
-  assert.match(teacher,/\/api\/status\?cedula=/);
+
 });
 test('Una hoja observada puede corregirse con enlace privado y guarda nuevas versiones',()=>{
   assert.match(api,/\/api\/private\/sheet/);
   assert.match(api,/\/api\/revise/);
   assert.match(api,/old\.estado!==STATES\.observed/);
   assert.match(api,/versionActual/);
-  assert.match(teacher,/loadCorrection/);
-  assert.match(teacher,/correctionTarget\?\.periodo/);
+
+
   assert.match(admin,/\/api\/admin\/action/);
 });
 test('Las hojas aprobadas no pueden editarse ni devolverse',()=>{
@@ -100,7 +96,7 @@ test('PDF institucional tiene ambas páginas y tres firmas',()=>{
   for(const id of ['financialPage','evidencePage'])assert.ok(ids(form).includes(id));
   for(const term of ['FIRMA DOCENTE','COORDINADOR DE TITULACIÓN','VICERRECTORADO'])
     assert.ok(form.includes(term));
-  assert.ok(teacher.includes("'evidencePage').hidden = false"));
+  assert.ok(teacher.includes("'evidencePage').hidden = ev.length === 0"));
   assert.match(teacher,/pagebreak/);
 });
 test('No se consulta o escribe Firebase con secretos administrativos en el navegador',()=>{
@@ -134,8 +130,8 @@ test('El docente puede seleccionar Febrero 2026 - Agosto 2026, incluso sin perí
   assert.match(form,/id="periodSelect"/);
   assert.match(form,/value="2026-02_2026-08"/);
   assert.match(teacher,/INITIAL_PERIOD_ID = '2026-02_2026-08'/);
-  assert.match(teacher,/periodoId:activePeriod\?\.id/);
-  assert.match(teacher,/periodId:correctionTarget\?\.periodo\?\.id\|\|activePeriod\?\.id/);
+
+  assert.match(teacher,/periodId:activePeriod\?\.id/);
   assert.match(api,/selectedPeriod\(periodSnap\.val\(\),input\.periodoId\)/);
   assert.match(api,/\/api\/periods/);
 });
@@ -158,4 +154,19 @@ test('Las fechas de clase se validan contra el período Febrero–Agosto elegido
     actividades:[{date:'2026-08-26',hours:2,notes:'Tutoría presencial',evidence:'https://example.org/video'}]};
   assert.equal(verify(base,period).totales.horas,2);
   assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],date:'2026-10-22'}]},period));
+});
+
+
+test('Enlaces seguros HTTP y HTTPS, fechas reales y almacenamiento bloqueado',()=>{
+  const valid=pure(teacher,'validEvidenceUrl');
+  assert.equal(valid('https://example.org/video?q=1'),true);
+  assert.equal(valid('http://example.org/video'),true);
+  assert.equal(valid('javascript:alert(1)'),false);
+  const date=pure(teacher,'validClassDate',['activePeriod'],[null]);
+  assert.equal(date('2026-02-30'),false);
+  assert.equal(date('2026-02-28'),true);
+  const remember=pure(teacher,'rememberTitle',['$','localStorage','TITLES'],[
+    id=>({value:id==='cedula'?'1718435009':'Magíster'}),
+    {getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}},'test']);
+  assert.doesNotThrow(()=>remember());
 });
