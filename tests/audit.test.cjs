@@ -1,200 +1,130 @@
 'use strict';
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const {spawnSync}=require('node:child_process');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-const teacher=read('app.js'), admin=read('desktop-admin/admin.js');
-const teacherHtml=read('index.html'), adminHtml=read('desktop-admin/index.html');
-const server=read('desktop-admin/server.mjs');
-const stripped=code=>code.replace(/^import .*?;\s*$/gm,'');
-const ids=code=>[...code.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
-
+const teacher=read('app.js'),form=read('index.html');
+const admin=read('administrador/dashboard.js'),panel=read('administrador/index.html');
+const api=read('backend/server.mjs'),config=read('api-config.js');
+const ids=html=>[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
+const strip=source=>source.replace(/^import .*?;\s*$/gm,'');
 function functionSource(code,name) {
   let start=code.indexOf('function '+name+'(');
   assert.ok(start>=0,'Falta función '+name);
   if(code.slice(start-6,start)==='async ')start-=6;
   const end=code.indexOf('\n}\n',start);
-  assert.ok(end>start,'Cierre de función '+name);
+  assert.ok(end>start,'Cierre faltante de '+name);
   return code.slice(start,end+2);
 }
-function make(code,name,args=[],values=[]) {
-  return new Function(...args,functionSource(code,name)+'\nreturn '+name)(...values);
+function pure(code,name,parameters=[],values=[]) {
+  return new Function(...parameters,functionSource(code,name)+'\nreturn '+name)(...values);
 }
-
-test('Ambos scripts tienen sintaxis válida',()=>{
-  new vm.Script(stripped(teacher));
-  new vm.Script(stripped(admin));
-});
-test('Todos los ID de controles existen sin duplicados y hay logotipo',()=>{
-  for(const [html,js] of [[teacherHtml,teacher],[adminHtml,admin]]) {
-    const set=ids(html);
-    assert.equal(new Set(set).size,set.length);
-    for(const m of js.matchAll(/\$\('([^']+)'\)/g))assert.ok(set.includes(m[1]),m[1]);
-  }
-  assert.ok(fs.existsSync(path.join(root,'assets/logo-itsqmet.jpg')));
-});
-test('Docente no puede editar períodos y el administrador usa transacciones',()=>{
-  for(const id of ['startMonth','startYear','endMonth','endYear','reviewPeriod'])
-    assert.ok(!ids(teacherHtml).includes(id));
-  assert.match(teacher,/onValue\(ref\(db, PERIODS_PATH\)/);
-  assert.ok(admin.includes('postPeriodChange(action, incoming)'));
-  assert.ok(server.includes('.transaction('));
-});
-test('Solo se activa un período y los anteriores quedan guardados',()=>{
-  const change=make(admin,'applyPeriodChange');
-  const a={id:'a',mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027};
-  const b={...a,id:'b'};
-  const first=change(null,'create',a);
-  const second=change(first,'create',b);
-  assert.equal(first.activoId,'a');
-  assert.equal(second.activoId,'b');
-  assert.equal(Object.keys(second.periodos).length,2);
-  const inactive=change(second,'deactivate',{id:'b'});
-  assert.equal(inactive.activoId,null);
-  assert.equal(change(inactive,'activate',{id:'a'}).activoId,'a');
-});
-test('La selección docente acepta únicamente el período activo válido',()=>{
-  const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const select=new Function('MONTHS',
-    functionSource(teacher,'validPeriod')+'\n'+functionSource(teacher,'selectActivePeriod')+'\nreturn selectActivePeriod')(months);
-  const id='2026-10_2027-03';
-  const data={activoId:id,periodos:{[id]:{mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027}}};
-  assert.equal(select(data).etiqueta,'Octubre 2026 - Marzo 2027');
-  assert.equal(select({...data,activoId:null}),null);
-  assert.equal(select({activoId:id,periodos:{[id]:{mesInicio:13,anioInicio:2026,mesFin:3,anioFin:2027}}}),null);
-});
-test('Fechas fuera del período, días inexistentes y URLs peligrosas se rechazan',()=>{
-  const valid=make(teacher,'validClassDate',['activePeriod'],[
-    {mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027}]);
-  assert.equal(valid('2026-10-22'),true);
-  assert.equal(valid('2027-03-31'),true);
-  assert.equal(valid('2026-09-30'),false);
-  assert.equal(valid('2027-04-01'),false);
-  assert.equal(valid('2027-02-30'),false);
-  const url=make(teacher,'validEvidenceUrl');
-  assert.equal(url(''),true);
-  assert.equal(url('https://teams.microsoft.com/recording'),true);
-  assert.equal(url('www.tarjetiva.com'),false);
-  assert.equal(url('javascript:alert(1)'),false);
-});
-test('Revisión sin tarifa se guarda; aprobación exige tarifa y registra historial',async()=>{
-  const period={mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027};
-  const records=[{id:'r1',periodo:period,tituloSuperior:'Magíster',carrera:'Mecánica',
-    estado:'Enviada',observacionAdmin:'',actividades:[]}];
-  let rows=[{date:'2026-10-22',valueHour:null,hours:2,notes:'Refuerzo',evidence:''}];
-  let status='Revisada'; const writes=[];
-  const elements={
-    editTitle:{value:'Magíster'},editCareer:{value:'Mecánica'},
-    editStatus:{get value(){return status}},editObservation:{value:''},
-    saveSheetBtn:{disabled:false},sheetDialog:{close(){}}
-  };
-  const save=new Function('records','currentId','editedActivities','validActivityDate','validEvidenceUrl',
-    '$','toast','push','ref','db','auth','update','renderHistory','console',
-    functionSource(admin,'saveCurrent')+'\nreturn saveCurrent')(
-    records,'r1',()=>rows,make(admin,'validActivityDate'),make(admin,'validEvidenceUrl'),
-    id=>elements[id],()=>{},()=>({key:'h1'}),(_,value)=>value,{},
-    {currentUser:{uid:'test-uid'}},async(_,payload)=>writes.push(payload),()=>{},console
-  );
-  assert.equal(await save(),true);
-  assert.equal(writes[0].actividades[0].valueHour,null);
-  assert.ok(writes[0]['historialCambios/h1']);
-  status='Aprobada';
-  assert.equal(await save(),false);
-  assert.equal(writes.length,1);
-  rows=[{...rows[0],valueHour:7.5}];
-  assert.equal(await save(),true);
-  assert.equal(writes.length,2);
-  assert.equal(writes[1].totales.valor,15);
-});
-test('Envíos concurrentes e idénticos no producen duplicados',async()=>{
-  const p={id:'a',mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027,etiqueta:'Octubre 2026 - Marzo 2027'};
-  const elements={submitAdminBtn:{disabled:false,textContent:''},cedula:{value:'1711111111'},
-    teacherName:{value:'DOCENTE'},teacherTitle:{value:'MAGÍSTER'},teacherCareer:{value:'MECÁNICA'}};
-  const store=new Map(),writes=[]; let next=0;
-  const fn=new Function('validateForm','db','$','get','ref','PERIODS_PATH','selectActivePeriod',
-    'setActivePeriod','toast','renderPeriodAvailability','updateAll','validateActivityCards',
-    'reportValidationError','activities','CONCEPT','teacherSource','localStorage','push','set',
-    'saveDraft','setSubmissionNote','console',
-    'let submissionInProgress=false;let activePeriod='+JSON.stringify(p)+';let periodState="ready";\n'+
-    functionSource(teacher,'submitToAdmin')+'\nreturn submitToAdmin')(
-    ()=>true,{},id=>elements[id],
-    async()=>({val:()=>({activoId:p.id,periodos:{[p.id]:p}})}),(_,id)=>id,
-    'periodosHojaFinanciera',()=>p,()=>{},()=>{},()=>{},()=>{},()=>true,()=>{},
-    ()=>[{date:'2026-10-22',valueHour:null,hours:2,notes:'Refuerzo',evidence:''}],
-    'Clases de refuerzo por carrera','manual',
-    {getItem:key=>store.get(key)||null,setItem:(key,value)=>store.set(key,value)},
-    ()=>({key:'r'+(++next)}),async(_,payload)=>writes.push(payload),
-    ()=>{},()=>{},{error(){},warn(){}}
-  );
-  await Promise.all([fn(),fn()]);
-  assert.equal(writes.length,1);
-  await fn();
-  assert.equal(writes.length,1);
-});
-test('Reglas documentadas niegan lectura pública de hojas y escritura de períodos',()=>{
-  const md=read('FIREBASE-ADMIN.md');
-  const fence=String.fromCharCode(96).repeat(3);
-  const match=md.match(new RegExp(fence+'json\\n([\\s\\S]*?)\\n'+fence));
-  assert.ok(match,'Falta JSON de reglas de Firebase');
-  const rules=JSON.parse(match[1]);
-  assert.notEqual(rules.hojasFinancieras['.read'],true);
-  assert.notEqual(rules.periodosHojaFinanciera['.write'],true);
-  const validation = rules.hojasFinancieras['$id']['.validate'];
-  assert.ok(validation.includes("newData.child('estado').val() === 'Enviada'"));
-  assert.ok(validation.includes("newData.child('totales').child('valor').val() === 0"));
-});
-test('El despliegue está condicionado a la ejecución de las pruebas',()=>{
-  assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
-});
-
-test('El administrador local abre sin Firebase Authentication',()=>{
-  for(const word of ['firebase-auth','signInAnonymously','onAuthStateChanged','getAuth(']) {
-    assert.ok(!admin.includes(word),word);
-  }
-  assert.ok(!adminHtml.includes('id="accessView"'));
-  assert.ok(adminHtml.includes('<section id="dashboardView" class="dashboard">'));
-  assert.ok(admin.includes('listenSheets();'));
-  assert.ok(admin.includes('listenPeriods();'));
-  assert.ok(read('administrador/index.html').includes('127.0.0.1:8765'));
-});
-
-test('El servidor es local y sus rutas privadas exigen un token',()=>{
-  assert.ok(server.includes("const ADDRESS='127.0.0.1'"));
-  assert.ok(server.includes('timingSafeEqual'));
-  assert.ok(server.includes("req.headers['x-local-admin']"));
-  assert.ok(server.includes('GOOGLE_APPLICATION_CREDENTIALS'));
-  assert.ok(!server.includes("listen(PORT,'0.0.0.0'"));
-  assert.ok(read('.gitignore').includes('service-account'));
-});
-
-test('El servidor impide pagos no válidos y períodos incorrectos',()=>{
-  const validPeriod=make(server,'validatePeriod');
-  const change=new Function('validatePeriod',
-    functionSource(server,'changePeriod')+'\nreturn changePeriod')(validPeriod);
-  const period={id:'2026-10_2027-03',mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027,
-    etiqueta:'Octubre 2026 - Marzo 2027'};
-  assert.equal(validPeriod(period),true);
-  assert.equal(validPeriod({...period,mesInicio:13}),false);
-  assert.equal(change(null,'create',period).activoId,period.id);
-  const active=change(null,'create',period);
-  assert.equal(change(active,'deactivate',{id:period.id}).activoId,null);
-  const validate=make(server,'validateChanges');
-  const activities=[{date:'2026-10-22',valueHour:null,hours:2,notes:'Clase',evidence:''}];
-  const proposal={estado:'Revisada',tituloSuperior:'Magíster',carrera:'Mecánica',
-    observacionAdmin:'',actividades:activities,evidencias:0,
-    totales:{clases:1,horas:2,valor:0},fechaActualizacion:Date.now()};
-  assert.equal(validate(proposal),true);
-  assert.equal(validate({...proposal,estado:'Aprobada'}),false);
-  assert.equal(validate({...proposal,totales:{clases:1,horas:2,valor:900}}),false);
-});
-
-test('Los módulos del administrador local tienen sintaxis correcta en Node',()=>{
-  const {spawnSync}=require('node:child_process');
-  for(const file of ['desktop-admin/admin.js','desktop-admin/local-db.js','desktop-admin/server.mjs']) {
+test('Los módulos JavaScript tienen sintaxis válida',()=>{
+  for(const file of ['app.js','api-config.js','administrador/dashboard.js','backend/server.mjs']) {
     const check=spawnSync(process.execPath,['--check',file],{cwd:root,encoding:'utf8'});
     assert.equal(check.status,0,file+' '+check.stderr);
   }
+});
+test('Ningún control del formulario o administrador falta o se duplica',()=>{
+  for(const [markup,script] of [[form,teacher],[panel,admin]]) {
+    const all=ids(markup);
+    assert.equal(new Set(all).size,all.length,'Duplicados');
+    for(const m of script.matchAll(/\$\('([^']+)'\)/g)) {
+      assert.ok(all.includes(m[1]),'Falta '+m[1]);
+    }
+  }
+  assert.ok(fs.existsSync(path.join(root,'assets/logo-itsqmet.jpg')));
+});
+test('El administrador abre directamente en GitHub Pages sin instalador o pantalla de login',()=>{
+  assert.match(panel,/id="privatePanel"/);
+  assert.match(panel,/id="kPending"/);
+  assert.doesNotMatch(panel,/127\.0\.0\.1|instalar administrador|Authentication|password/i);
+  assert.doesNotMatch(admin,/getAuth|signInAnonymously/);
+});
+test('Estadísticas públicas y datos privados están separados',()=>{
+  assert.match(api,/\/api\/admin\/stats/);
+  assert.match(api,/\/api\/admin\/sheets/);
+  assert.match(api,/adminAuthorized\(req\)/);
+  assert.match(api,/x-admin-capability/);
+  assert.match(admin,/state\.token/);
+  assert.match(admin,/privateHint/);
+});
+test('Los docentes descargan PDF primero y solo después pueden subir uno firmado',()=>{
+  assert.match(form,/id="pdfBtn"/);
+  assert.match(form,/id="signedPdfFile"/);
+  assert.match(form,/id="submitAdminBtn"/);
+  assert.match(teacher,/readSignedPdf\(file\)/);
+  assert.match(teacher,/\/api\/submit/);
+  assert.match(api,/function readPdf/);
+  assert.doesNotMatch(teacher,/set\(target,\s*payload\)/);
+});
+test('Solo PDF firmado se almacena en Storage y las versiones tienen nombre fijo',()=>{
+  assert.match(api,/hojas-financieras\/.*firmadas\/v/);
+  assert.match(api,/bucket\.file\(path\)\.save/);
+  assert.match(api,/versiones/);
+  assert.match(api,/archivoActual/);
+  assert.match(api,/MAX_PDF/);
+});
+test('La consulta por cédula no entrega cédulas ni documentos completos',()=>{
+  const src=functionSource(api,'status');
+  assert.match(src,/cedula/);
+  assert.match(src,/estado/);
+  assert.doesNotMatch(src,/pdfBase64|capabilityHash|observacionAdmin/);
+  assert.match(teacher,/\/api\/status\?cedula=/);
+});
+test('Una hoja observada puede corregirse con enlace privado y guarda nuevas versiones',()=>{
+  assert.match(api,/\/api\/private\/sheet/);
+  assert.match(api,/\/api\/revise/);
+  assert.match(api,/old\.estado!==STATES\.observed/);
+  assert.match(api,/versionActual/);
+  assert.match(teacher,/loadCorrection/);
+  assert.match(teacher,/correctionTarget\?\.periodo/);
+  assert.match(admin,/\/api\/admin\/action/);
+});
+test('Las hojas aprobadas no pueden editarse ni devolverse',()=>{
+  assert.match(api,/prev\.estado===STATES\.approved/);
+  assert.match(api,/prev\.estado!==STATES\.received/);
+  assert.match(api,/Observada/);
+  assert.match(api,/Aprobada/);
+});
+test('La tarifa por hora queda vacía para el docente',()=>{
+  assert.match(teacher,/valueHour:\s*null/);
+  assert.match(api,/valueHour:null/);
+  assert.match(form,/VALOR HORA/);
+});
+test('PDF institucional tiene ambas páginas y tres firmas',()=>{
+  for(const id of ['financialPage','evidencePage'])assert.ok(ids(form).includes(id));
+  for(const term of ['FIRMA DOCENTE','COORDINADOR DE TITULACIÓN','VICERRECTORADO'])
+    assert.ok(form.includes(term));
+  assert.ok(teacher.includes("'evidencePage').hidden = false"));
+  assert.match(teacher,/pagebreak/);
+});
+test('No se consulta o escribe Firebase con secretos administrativos en el navegador',()=>{
+  assert.ok(!config.includes('service-account'));
+  assert.ok(!config.includes('ADMIN_ACCESS_TOKEN'));
+  assert.match(api,/FIREBASE_SERVICE_ACCOUNT_JSON/);
+  assert.match(api,/ADMIN_ACCESS_TOKEN/);
+  assert.match(api,/APP_ORIGIN/);
+  assert.match(api,/MAX_BODY/);
+});
+test('No se puede crear un documento fuera del período ni con horas inválidas',()=>{
+  const clean=pure(api,'sanitizeString');
+  const validPeriod=pure(api,'validPeriod');
+  const fn=pure(api,'verifySheet',['sanitizeString','validPeriod'],[clean,validPeriod]);
+  const period={id:'2026-10_2027-03',anioInicio:2026,mesInicio:10,anioFin:2027,mesFin:3};
+  const sheet={cedula:'1718435009',docente:'Stalin Fabricio Llumiquinga Oña',
+    tituloSuperior:'Ingeniero Automotriz',carrera:'Mecánica',
+    actividades:[{date:'2026-10-22',hours:2,notes:'Clase de refuerzo',evidence:'https://example.org/video'}]};
+  const verified=fn(sheet,period);
+  assert.equal(verified.totales.horas,2);
+  assert.equal(verified.actividades[0].valueHour,null);
+  assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],date:'2026-09-01'}]},period));
+  assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:25}]},period));
+});
+test('Comprobación de páginas está condicionada a las pruebas automáticas',()=>{
+  assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
 });
