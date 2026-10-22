@@ -460,3 +460,28 @@ body.pdf-export .pdf-page:last-child {
     word-break: break-word;
   }
 }
+
+
+/* Selector de período lectivo disponible para docentes */
+.teacher-grid .period-choice {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  background: #f1f6fc;
+  border: 1px solid #c8d9eb;
+  border-radius: 9px;
+  margin-bottom: 5px;
+}
+.period-choice select {
+  width: 100%;
+  min-height: 39px;
+  margin-top: 4px;
+  color: #153d5e;
+  background: #fff;
+  border: 1px solid #b8cde1;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+.period-choice select:disabled {opacity: .8;cursor: not-allowed}
+.period-choice .helper {font-weight: normal;line-height: 1.35}
