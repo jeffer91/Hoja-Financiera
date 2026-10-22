@@ -72,9 +72,10 @@
           </section>
 
           <section class="form-section">
-            <div class="section-title">
+            <div class="section-title teacher-heading">
               <span class="step">2</span>
-              <div><h2>Docente</h2><p>Escribe la cédula para buscar los datos.</p></div>
+              <div><h2>Docente</h2><p>Busca por cédula o agrega uno nuevo.</p></div>
+              <button type="button" class="btn btn-new-teacher" id="manualTeacherBtn">+ Docente nuevo</button>
             </div>
             <div class="teacher-grid">
               <label>Cédula
@@ -82,16 +83,16 @@
                   <input id="cedula" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Ej. 1713315131" required />
                   <button type="button" class="btn btn-secondary" id="lookupBtn">Buscar</button>
                 </div>
-                <small id="lookupMessage" class="helper"></small>
+                <small id="lookupMessage" class="helper" role="status" aria-live="polite"></small>
               </label>
               <label>Apellidos y nombres
-                <input id="teacherName" placeholder="Se completa automáticamente" required readonly />
+                <input id="teacherName" placeholder="Automático o escribe un docente nuevo" required readonly />
               </label>
               <label>Título superior
                 <input id="teacherTitle" placeholder="Ej. Magíster en Sistemas Informáticos" required />
               </label>
               <label>Carrera detectada <span class="optional">opcional</span>
-                <input id="teacherCareer" placeholder="Se completa si está registrada" readonly />
+                <input id="teacherCareer" placeholder="Automática o ingresa la carrera" readonly />
               </label>
             </div>
           </section>
