@@ -1,31 +1,33 @@
-# Configuración del administrador
+# Acceso al administrador sin formulario de login
 
-La aplicación ya incluye dos áreas:
-
+Enlaces:
 - Docentes: `https://jeffer91.github.io/Hoja-Financiera/`
 - Administrador: `https://jeffer91.github.io/Hoja-Financiera/administrador/`
 
-## 1. Firebase Authentication
+El formulario docente no requiere iniciar sesión. El panel del administrador tampoco solicita correo ni contraseña. Firebase Authentication identifica **automáticamente** cada navegador; únicamente los navegadores previamente autorizados pueden leer y modificar hojas financieras. **La autorización no debe quitarse**: GitHub Pages es público y las hojas contienen nombres, cédulas y valores de pago.
 
-En Firebase Console, abre **Authentication > Sign-in method** y habilita **Correo electrónico/Contraseña**.
+## 1. Activar acceso automático en Firebase
 
-Crea la cuenta que utilizará el administrador.
+En el proyecto `repaso-fire-d8ceb`:
 
-## 2. Autorizar el UID
+1. Abre **Firebase Console > Authentication > Sign-in method**.
+2. Habilita **Anónimo (Anonymous)**. No es necesario crear cuentas con correo/contraseña para el nuevo acceso.
+3. Abre la URL del administrador en el navegador que utilizarás normalmente. Se creará una identidad anónima persistente y aparecerá su **UID de navegador** mientras no esté autorizada.
+4. En **Realtime Database**, crea el nodo con ese UID exacto:
+   ```text
+   administradores
+     UID_DEL_NAVEGADOR
+       activo: true
+   ```
+5. Actualiza la página: el panel abrirá directamente, sin pedir login.
 
-Después de crear la cuenta, copia su UID y agrega en Realtime Database:
+El UID no es una contraseña y no debe tratarse como un secreto. La seguridad depende de la identidad autenticada por Firebase y de las reglas de la base de datos. No basta con escribir un UID diferente desde el navegador para obtener acceso.
 
-```text
-administradores
-  UID_DEL_USUARIO
-    activo: true
-```
+**Importante:** cada navegador o dispositivo nuevo necesita autorización propia. Borrar los datos del navegador puede generar otro UID. Para revocar un navegador, cambia `activo` a `false` o elimina su nodo. El navegador autorizado no debe compartirse con personas no autorizadas.
 
-El panel administrativo comprueba este nodo antes de mostrar las hojas.
+## 2. Reglas de Firebase Realtime Database
 
-## 3. Reglas recomendadas para estos nodos
-
-Estas condiciones deben integrarse en las reglas existentes del proyecto, sin reemplazar reglas de otros sistemas que ya utilicen Repaso-Fire.
+Integra estas condiciones en las reglas existentes sin eliminar reglas de otros sistemas que usan el proyecto. Estas reglas distinguen la creación de hojas por docentes sin cuenta de la administración protegida.
 
 ```json
 {
@@ -44,8 +46,13 @@ Estas condiciones deben integrarse en las reglas existentes del proyecto, sin re
 }
 ```
 
-La regla de escritura permite que el formulario docente cree una hoja nueva, pero impide que un visitante anónimo lea, edite o elimine hojas existentes. Los administradores autorizados pueden leer y actualizar.
+La lectura y la edición de hojas existentes requieren autorización; la creación de registros nuevos desde el formulario docente continúa sin inicio de sesión. Las reglas anteriores son un mínimo de compatibilidad, no sustituyen validaciones de contenido y mecanismos antispam para nuevas hojas.
 
-## Datos guardados
+## 3. Comprobación
 
-Cada envío se almacena en `hojasFinancieras/{id}` con docente, cédula, título, carrera, período, clases, horas, valor estimado, evidencias, estado, observación administrativa y fechas de envío/actualización.
+- Navegador **no autorizado**: muestra el UID de autorización, **no** muestra los registros.
+- Navegador **autorizado**: entra directamente al panel de hojas.
+- Si el proyecto tiene deshabilitado **Anónimo**: aparece un mensaje que indica qué habilitar.
+- Para confirmar que el envío, la edición y el filtrado funcionan, prueba con registros controlados y verifica las reglas publicadas en Firebase Console.
+
+Cada hoja se almacena en `hojasFinancieras/{id}` con cédula, docente, carrera, actividades, totales y estado de revisión.
