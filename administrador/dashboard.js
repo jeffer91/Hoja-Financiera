@@ -22,7 +22,9 @@ function label(v) {return safe(v||'—');}
 async function check() {
   try {
     const health=await apiRequest('/api/health');
-    if(!health.configured)notice('La API todavía necesita configurar Firebase.', 'error');
+    if(!health.ok)notice(health.reason==='credentials-required'
+      ? 'Configuración pendiente: conectar Firebase al servicio Render para activar los documentos firmados.'
+      : 'El servicio no puede acceder correctamente a Firebase Database o Storage.', 'error');
   } catch(err) {notice('Servicio no disponible: '+err.message,'error');}
 }
 async function refreshStats() {
