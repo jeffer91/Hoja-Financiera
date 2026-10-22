@@ -1,0 +1,8 @@
+# Credenciales y dependencias locales: nunca publicarlas.
+node_modules/
+desktop-admin/node_modules/
+desktop-admin/secretos/
+**/*service-account*.json
+**/*serviceAccount*.json
+.env
+.env.*
