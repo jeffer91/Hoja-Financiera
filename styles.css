@@ -513,3 +513,6 @@ body.pdf-export .pdf-page[hidden] {
   break-before: auto !important;
   break-after: auto !important;
 }
+
+/* El campo 'Otra carrera' solo se muestra al elegir la opción correspondiente. */
+.teacher-career-other[hidden] { display: none; }

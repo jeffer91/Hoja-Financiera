@@ -70,7 +70,40 @@
                 <input id="teacherTitle" maxlength="200" placeholder="Ej. Magíster en Sistemas Informáticos" required />
               </label>
               <label>Carrera <span class="optional">opcional</span>
-                <input id="teacherCareer" maxlength="180" placeholder="Escribe la carrera (opcional)" />
+                <select id="teacherCareer">
+                  <option value="">Selecciona tu carrera (opcional)</option>
+                  <option value="Administración">Administración</option>
+                  <option value="Administración de Empresas e Inteligencia de Negocios">Administración de Empresas e Inteligencia de Negocios</option>
+                  <option value="Administración del Talento Humano">Administración del Talento Humano</option>
+                  <option value="Contabilidad">Contabilidad</option>
+                  <option value="Contabilidad y Tributación TSU">Contabilidad y Tributación TSU</option>
+                  <option value="Desarrollo de Software">Desarrollo de Software</option>
+                  <option value="Desarrollo de Software y Ciberseguridad">Desarrollo de Software y Ciberseguridad</option>
+                  <option value="Diseño Multimedia">Diseño Multimedia</option>
+                  <option value="Educación Básica">Educación Básica</option>
+                  <option value="Educación Inicial">Educación Inicial</option>
+                  <option value="Educación Inicial TSU">Educación Inicial TSU</option>
+                  <option value="Enfermería">Enfermería</option>
+                  <option value="Estética Integral">Estética Integral</option>
+                  <option value="Gastronomía">Gastronomía</option>
+                  <option value="Gestión del Talento Humano">Gestión del Talento Humano</option>
+                  <option value="Marketing Digital y Comercio Electrónico">Marketing Digital y Comercio Electrónico</option>
+                  <option value="Marketing Digital y Comercio Electrónico TSU">Marketing Digital y Comercio Electrónico TSU</option>
+                  <option value="Mecánica Automotriz">Mecánica Automotriz</option>
+                  <option value="Mecánica de Motos">Mecánica de Motos</option>
+                  <option value="Pedagogía">Pedagogía</option>
+                  <option value="Procesamiento de Alimentos">Procesamiento de Alimentos</option>
+                  <option value="Redes y Telecomunicaciones">Redes y Telecomunicaciones</option>
+                  <option value="Redes y Telecomunicaciones TSU">Redes y Telecomunicaciones TSU</option>
+                  <option value="Rehabilitación Física">Rehabilitación Física</option>
+                  <option value="Seguridad Ciudadana y Orden Público">Seguridad Ciudadana y Orden Público</option>
+                  <option value="Seguridad y Prevención de Riesgos Laborales">Seguridad y Prevención de Riesgos Laborales</option>
+                  <option value="Ventas">Ventas</option>
+                  <option value="__other__">Otra carrera (escribir nombre)</option>
+                </select>
+              </label>
+              <label id="teacherCareerOtherLabel" class="teacher-career-other" hidden>Otra carrera
+                <input id="teacherCareerOther" maxlength="180" placeholder="Escribe el nombre de la carrera" />
               </label>
             </div>
           </section>
@@ -227,7 +260,7 @@
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261109-manual-v1"></script>
+  <script type="module" src="app.js?v=20261109-manual-selector-v2"></script>
 </body>
 </html>
 

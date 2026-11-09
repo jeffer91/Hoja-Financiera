@@ -90,6 +90,7 @@ function bind() {
   });
   $('addActivityBtn').addEventListener('click', () => addActivity());
   $('cedula').addEventListener('input', sanitizeCedula);
+  $('teacherCareer').addEventListener('change', toggleCareerOther);
   $('periodSelect').addEventListener('change', () => {
     desiredPeriodId=$('periodSelect').value;
     activePeriod=availablePeriods[desiredPeriodId]||availablePeriods[INITIAL_PERIOD_ID];
@@ -187,7 +188,7 @@ function renderPreview(rows, totalHours) {
   const ev = rows.filter(r => r.evidence);
   $('evidencePage').hidden = ev.length === 0;
   $('evName').textContent = $('teacherName').value.trim() || '—';
-  $('evCareer').textContent = $('teacherCareer').value.trim() || '—';
+  $('evCareer').textContent = careerValue() || '—';
   $('evPeriod').textContent = period || '—';
   const evList = $('evidenceList');
   evList.replaceChildren();
@@ -224,6 +225,18 @@ function addPair(grid, label, value, url) {
 function sanitizeCedula() {
   const input = $('cedula');
   input.value = input.value.replace(/\D/g, '').slice(0, 10);
+}
+
+function toggleCareerOther() {
+  const other = $('teacherCareer').value === '__other__';
+  $('teacherCareerOtherLabel').hidden = !other;
+  if (!other) $('teacherCareerOther').value = '';
+}
+
+function careerValue() {
+  return ($('teacherCareer').value === '__other__'
+    ? $('teacherCareerOther').value
+    : $('teacherCareer').value).trim();
 }
 
 function periodLabel() {
@@ -272,7 +285,7 @@ function updateWizardSummary() {
   if (!teacher) return;
   teacher.textContent = $('teacherName').value.trim() || '—';
   $('reviewCedula').textContent = $('cedula').value.trim() || '—';
-  $('reviewCareer').textContent = $('teacherCareer').value.trim() || 'No registrada';
+  $('reviewCareer').textContent = careerValue() || 'No registrada';
 }
 
 function markFieldInvalid(field, invalid) {
@@ -446,7 +459,7 @@ function scheduleDraft() {
 function saveDraft(showMessage) {
   const data = {
     cedula:$('cedula').value, teacherName:$('teacherName').value,
-    teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
+    teacherTitle:$('teacherTitle').value, teacherCareer:careerValue(),
     periodId:activePeriod?.id||INITIAL_PERIOD_ID,
     activities:activities()
   };
@@ -462,9 +475,14 @@ function restoreDraft() {
   try {
     const d = JSON.parse(raw);
     if (!d || typeof d !== 'object' || !Array.isArray(d.activities)) return false;
-    ['cedula','teacherName','teacherTitle','teacherCareer'].forEach(k => {
+    ['cedula','teacherName','teacherTitle'].forEach(k => {
       if (d[k] != null) $(k).value = d[k];
     });
+    const career = typeof d.teacherCareer === 'string' ? d.teacherCareer : '';
+    const isListed = Array.from($('teacherCareer').options).some(o => o.value === career);
+    $('teacherCareer').value = isListed ? career : (career ? '__other__' : '');
+    $('teacherCareerOther').value = isListed ? '' : career;
+    toggleCareerOther();
     desiredPeriodId = typeof d.periodId==='string' ? d.periodId : INITIAL_PERIOD_ID;
     activePeriod = availablePeriods[desiredPeriodId] || availablePeriods[INITIAL_PERIOD_ID];
     renderPeriodSelector();
@@ -483,6 +501,7 @@ function clearForm() {
   clearAllValidation();
   clearTimeout(draftTimer);
   form.reset();
+  toggleCareerOther();
   desiredPeriodId = INITIAL_PERIOD_ID;
   activePeriod = availablePeriods[INITIAL_PERIOD_ID];
   renderPeriodSelector();
