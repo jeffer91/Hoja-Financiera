@@ -350,9 +350,11 @@ function defaultClassDate() {
 }
 
 function validEvidenceUrl(value) {
-  if (!value) return true;
-  try { return ['https:', 'http:'].includes(new URL(value).protocol); }
-  catch { return false; }
+  if (!value || !value.trim()) return false;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' && !!url.hostname;
+  } catch { return false; }
 }
 
 function validateActivityCard(card) {
@@ -365,8 +367,8 @@ function validateActivityCard(card) {
   const badHours = !hours.value.trim() || !hours.checkValidity() ||
     !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0 || Number(hours.value) > 24;
   const badNotes = !notes.value.trim();
-  // La evidencia es opcional; si hay un enlace, debe ser válido.
-  const badEvidence = !!evidence.value.trim() && (!evidence.checkValidity() || !validEvidenceUrl(evidence.value.trim()));
+  // Cada clase debe incluir una dirección HTTPS de evidencia válida.
+  const badEvidence = !evidence.value.trim() || !evidence.checkValidity() || !validEvidenceUrl(evidence.value.trim());
 
   markFieldInvalid(date, badDate);
   markFieldInvalid(hours, badHours);
@@ -405,7 +407,7 @@ function validateWizardPage(page) {
   if (page === 2) {
     validatedPages.add(2);
     if (!validateActivityCards()) {
-      return reportValidationError(2, 'Completa los campos rojos de las clases. La evidencia es opcional.');
+      return reportValidationError(2, 'Completa los campos rojos: cada clase requiere un enlace HTTPS de grabación o evidencia.');
     }
     return true;
   }

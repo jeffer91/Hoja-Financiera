@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d2f56" />
   <meta name="description" content="Generador institucional de hojas financieras para clases de refuerzo por carrera." />
   <title>Hoja Financiera | ITSQMET</title>
-  <link rel="stylesheet" href="styles.css?v=20261022-generator-v3" />
+  <link rel="stylesheet" href="styles.css?v=20261109-evidencia-obligatoria-v5" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -241,19 +241,21 @@
         </label>
         <label>Horas trabajadas
           <input class="activity-hours" type="number" inputmode="decimal" min="0.01" max="24" step="0.01" value="2.00" required />
+          <span class="hours-match-note">Las horas declaradas deben coincidir con la duración de la grabación o evidencia.</span>
         </label>
         <label class="full-width">Observaciones
           <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Ej. Revisión de introducción, metodología y correcciones del artículo académico." required></textarea>
         </label>
-        <label class="full-width">Enlace de grabación o evidencia <span class="optional">opcional</span>
-          <input class="activity-evidence" maxlength="2048" type="url" placeholder="https://..." />
+        <label class="full-width">Enlace de grabación o evidencia (obligatorio)
+          <input class="activity-evidence" maxlength="2048" type="url" inputmode="url" placeholder="https://..." required />
+          <span class="evidence-warning">Comparte el enlace con permisos de visualización para el personal responsable de la revisión. Si no es posible acceder a la evidencia o no coinciden las horas declaradas, estas no serán validadas para el pago hasta que se corrija la observación.</span>
         </label>
       </div>
     </article>
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261109-horas-decimales-v4"></script>
+  <script type="module" src="app.js?v=20261109-evidencia-obligatoria-v5"></script>
 </body>
 </html>
 

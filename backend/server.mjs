@@ -70,7 +70,11 @@ export function verifySheet(data,period) {
       throw Error('Una fecha está fuera del período');
     const hours=Number(a.hours), notes=sanitizeString(a.notes,1200), evidence=sanitizeString(a.evidence,2048);
     if(!Number.isFinite(hours)||hours<0.01||hours>24||Math.abs(hours*100-Math.round(hours*100))>1e-8||!notes)throw Error('Revisa horas y observaciones');
-    if(evidence&&!/^https:\/\/[^\s]+$/i.test(evidence))throw Error('El enlace de grabación debe comenzar por https://');
+    let evidenceUrl;
+    try { evidenceUrl = new URL(evidence); }
+    catch { throw Error('Revisa el enlace de grabación o evidencia: es obligatorio y debe ser https://'); }
+    if(evidenceUrl.protocol !== 'https:' || !evidenceUrl.hostname)
+      throw Error('Revisa el enlace de grabación o evidencia: es obligatorio y debe ser https://');
     return {date:a.date,hours,notes,evidence,valueHour:null};
   });
   return {version:3,origen:'Hoja-Financiera',cedula,docente,tituloSuperior:titulo,carrera,

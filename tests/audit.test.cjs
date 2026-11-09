@@ -133,6 +133,28 @@ test('Dos decimales en horas y concepto fijo conservado solo en el documento',()
   assert.match(teacher,/minimumFractionDigits:2/);
   assert.match(form,/id="pvActivities"/);
 });
+test('Evidencia obligatoria por clase, horas coincidentes y permisos para revisión',()=>{
+  const evidenceField=form.match(/<input class="activity-evidence"[^>]*\/>/)?.[0];
+  assert.ok(evidenceField,'Falta el campo de enlace');
+  assert.match(evidenceField,/type="url"/);
+  assert.match(evidenceField,/required/);
+  assert.doesNotMatch(form,/Enlace de grabación o evidencia <span class="optional">opcional<\/span>/);
+  assert.match(form,/Las horas declaradas deben coincidir/);
+  assert.match(form,/permisos de visualización/);
+  assert.match(form,/no serán validadas para el pago/);
+  assert.match(teacher,/const badEvidence = !evidence\.value\.trim\(\)/);
+  assert.doesNotMatch(teacher,/La evidencia es opcional/);
+  const clean=pure(api,'sanitizeString');
+  const validPeriod=pure(api,'validPeriod');
+  const verify=pure(api,'verifySheet',['sanitizeString','validPeriod'],[clean,validPeriod]);
+  const period={id:'2026-02_2026-08',mesInicio:2,anioInicio:2026,mesFin:8,anioFin:2026};
+  const base={cedula:'1718435009',docente:'Docente de Prueba Completo',tituloSuperior:'Magíster',
+    actividades:[{date:'2026-02-12',hours:2.25,notes:'Clase de refuerzo',evidence:'https://example.org/grabacion'}]};
+  assert.equal(verify(base,period).evidencias,1);
+  for(const evidence of ['', ' ', 'http://example.org/grabacion', 'javascript:alert(1)', 'https://']) {
+    assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],evidence}]},period));
+  }
+});
 test('Comprobación de páginas está condicionada a las pruebas automáticas',()=>{
   assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);
 });
@@ -172,7 +194,9 @@ test('Las fechas de clase se validan contra el período Febrero–Agosto elegido
 test('Enlaces seguros HTTP y HTTPS, fechas reales y almacenamiento bloqueado',()=>{
   const valid=pure(teacher,'validEvidenceUrl');
   assert.equal(valid('https://example.org/video?q=1'),true);
-  assert.equal(valid('http://example.org/video'),true);
+  assert.equal(valid(''),false);
+  assert.equal(valid('  '),false);
+  assert.equal(valid('http://example.org/video'),false);
   assert.equal(valid('javascript:alert(1)'),false);
   const date=pure(teacher,'validClassDate',['activePeriod'],[null]);
   assert.equal(date('2026-02-30'),false);
