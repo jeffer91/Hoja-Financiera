@@ -175,12 +175,12 @@ test('Enlaces seguros HTTP y HTTPS, fechas reales y almacenamiento bloqueado',()
 test('El docente ingresa su nombre y selecciona carrera sin consulta automática',()=>{
   const name=form.match(/<input id="teacherName"[^>]*>/)?.[0];
   assert.ok(name);
-  assert.doesNotMatch(name,/\\breadonly\\b/i);
+  assert.doesNotMatch(name,/\breadonly\b/i);
   assert.match(form,/<select id="teacherCareer">/);
   assert.match(form,/<option value="__other__">/);
   assert.match(form,/id="teacherCareerOther"/);
   assert.doesNotMatch(form,/id="(?:lookupBtn|manualTeacherBtn|firebaseStatus|lookupMessage)"/);
   assert.doesNotMatch(teacher,/lookupTeacher|findRecord|patrociniosGenerados|rememberTitle|restoreTitle|lookupSequence|teacherSource|setFirebaseStatus/);
-  assert.match(teacher,/addEventListener\\('input', sanitizeCedula\\)/);
-  assert.match(teacher,/function careerValue\\(\\)/);
+  assert.match(teacher,/addEventListener\('input', sanitizeCedula\)/);
+  assert.match(teacher,/function careerValue\(\)/);
 });
