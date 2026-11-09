@@ -5,7 +5,7 @@
 ## Flujo actual
 
 1. Seleccionar período e ingresar manualmente la cédula, los apellidos y los nombres en campos separados, el título superior y, opcionalmente, seleccionar la carrera (con opción de escribir otra).
-2. Registrar de 1 a 80 clases, con fecha dentro del período, horas entre 0,25 y 24 en intervalos de 0,25 y observaciones. Los enlaces HTTP/HTTPS son opcionales.
+2. Registrar de 1 a 80 clases, con fecha dentro del período, horas entre 0,01 y 24,00 en intervalos de 0,01 (hasta dos decimales) y observaciones. Los enlaces HTTP/HTTPS son opcionales.
 3. Revisar los totales y descargar el PDF A4 o imprimirlo. El proceso termina aquí: no se solicita subir un documento firmado.
 
 La tarifa queda vacía para Talento Humano y se mantienen tres espacios de firma. La página de evidencias aparece solamente cuando hay enlaces. Los enlaces conservan su URL; los permisos de acceso a grabaciones deben configurarse en el servicio donde están alojadas.

@@ -118,21 +118,10 @@
         </section>
 
         <section class="wizard-page" data-wizard-page="2" hidden>
-          <section class="form-section first-section fixed-concept">
-            <div class="section-title compact-title">
-              <span class="step">3</span>
-              <div><h2>Actividad</h2><p>Concepto institucional fijo.</p></div>
-            </div>
-            <div class="fixed-value">
-              <span>Concepto</span>
-              <strong>Clases de refuerzo por carrera</strong>
-            </div>
-          </section>
-
-          <section class="form-section">
+          <section class="form-section first-section">
             <div class="section-title activities-title">
               <div class="title-with-step">
-                <span class="step">4</span>
+                <span class="step">3</span>
                 <div><h2>Clases realizadas</h2><p>Agrega una fila por cada fecha trabajada.</p></div>
               </div>
               <button type="button" class="btn btn-secondary" id="addActivityBtn">+ Agregar clase</button>
@@ -149,7 +138,7 @@
         <section class="wizard-page" data-wizard-page="3" hidden>
           <section class="form-section first-section">
             <div class="section-title">
-              <span class="step">5</span>
+              <span class="step">4</span>
               <div><h2>Resumen</h2><p>Confirma tus datos y descarga la hoja financiera.</p></div>
             </div>
 
@@ -251,7 +240,7 @@
           <input class="activity-date" type="date" required />
         </label>
         <label>Horas trabajadas
-          <input class="activity-hours" type="number" min="0.25" max="24" step="0.25" value="2" required />
+          <input class="activity-hours" type="number" inputmode="decimal" min="0.01" max="24" step="0.01" value="2.00" required />
         </label>
         <label class="full-width">Observaciones
           <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Ej. Revisión de introducción, metodología y correcciones del artículo académico." required></textarea>
@@ -264,7 +253,7 @@
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261109-nombres-separados-v3"></script>
+  <script type="module" src="app.js?v=20261109-horas-decimales-v4"></script>
 </body>
 </html>
 

@@ -118,8 +118,20 @@ test('No se puede crear un documento fuera del período ni con horas inválidas'
   const verified=fn(sheet,period);
   assert.equal(verified.totales.horas,2);
   assert.equal(verified.actividades[0].valueHour,null);
+  assert.equal(fn({...sheet,actividades:[{...sheet.actividades[0],hours:1.35}]},period).totales.horas,1.35);
+  assert.equal(fn({...sheet,actividades:[{...sheet.actividades[0],hours:0.01}]},period).totales.horas,0.01);
+  assert.equal(fn({...sheet,actividades:[{...sheet.actividades[0],hours:1.35},{...sheet.actividades[0],hours:2.45}]},period).totales.horas,3.8);
+  assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:1.235}]},period));
+  assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:0}]},period));
   assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],date:'2026-09-01'}]},period));
   assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:25}]},period));
+});
+test('Dos decimales en horas y concepto fijo conservado solo en el documento',()=>{
+  assert.match(form,/class="activity-hours"[^>]*min="0\.01"[^>]*step="0\.01"/);
+  assert.doesNotMatch(form,/<h2>Actividad<\/h2>|class="fixed-value"/);
+  assert.match(teacher,/const CONCEPT = 'Clases de refuerzo por carrera'/);
+  assert.match(teacher,/minimumFractionDigits:2/);
+  assert.match(form,/id="pvActivities"/);
 });
 test('Comprobación de páginas está condicionada a las pruebas automáticas',()=>{
   assert.match(read('.github/workflows/pages.yml'),/node --test tests\/audit\.test\.cjs/);

@@ -116,7 +116,15 @@ function addActivity(data) {
   const frag = template.content.cloneNode(true);
   const card = frag.querySelector('.activity-card');
   card.querySelector('.activity-date').value = data.date || defaultClassDate();
-  card.querySelector('.activity-hours').value = data.hours == null ? 2 : data.hours;
+  const hoursInput = card.querySelector('.activity-hours');
+  const initialHours = data.hours == null ? 2 : Number(data.hours);
+  hoursInput.value = Number.isFinite(initialHours) ? initialHours.toFixed(2) : '';
+  hoursInput.addEventListener('blur', () => {
+    const value = Number(hoursInput.value);
+    if (hoursInput.value.trim() && hoursInput.checkValidity() && Number.isFinite(value)) {
+      hoursInput.value = value.toFixed(2);
+    }
+  });
   card.querySelector('.activity-notes').value = data.notes || '';
   card.querySelector('.activity-evidence').value = data.evidence || '';
   card.querySelector('.remove-activity').addEventListener('click', () => {
@@ -542,7 +550,7 @@ function today() {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
-function nfmt(v) { return Number(v || 0).toLocaleString('es-EC', {maximumFractionDigits:2}); }
+function nfmt(v) { return Number(v || 0).toLocaleString('es-EC', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function clean(v) { return String(v || '').replace(/\s+/g,' ').trim(); }
 function fileSafe(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'').toUpperCase(); }
 

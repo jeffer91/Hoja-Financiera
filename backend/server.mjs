@@ -69,14 +69,14 @@ export function verifySheet(data,period) {
     if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==a.date||date.getTime()<start||date.getTime()>end)
       throw Error('Una fecha está fuera del período');
     const hours=Number(a.hours), notes=sanitizeString(a.notes,1200), evidence=sanitizeString(a.evidence,2048);
-    if(!Number.isFinite(hours)||hours<=0||hours>24||Math.round(hours*4)!==hours*4||!notes)throw Error('Revisa horas y observaciones');
+    if(!Number.isFinite(hours)||hours<0.01||hours>24||Math.abs(hours*100-Math.round(hours*100))>1e-8||!notes)throw Error('Revisa horas y observaciones');
     if(evidence&&!/^https:\/\/[^\s]+$/i.test(evidence))throw Error('El enlace de grabación debe comenzar por https://');
     return {date:a.date,hours,notes,evidence,valueHour:null};
   });
   return {version:3,origen:'Hoja-Financiera',cedula,docente,tituloSuperior:titulo,carrera,
     origenDocente:data.origenDocente==='manual'?'manual':'firebase',
     concepto:'Clases de refuerzo por carrera',actividades,
-    totales:{clases:actividades.length,horas:actividades.reduce((s,a)=>s+a.hours,0),valor:0},
+    totales:{clases:actividades.length,horas:Math.round(actividades.reduce((s,a)=>s+a.hours,0)*100)/100,valor:0},
     evidencias:actividades.filter(a=>a.evidence).length};
 }
 export function readPdf(value) {
