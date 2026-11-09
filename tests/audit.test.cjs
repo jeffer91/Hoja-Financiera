@@ -144,6 +144,7 @@ test('Salida fiel a plantilla oficial en Carta con páginas adicionales sin perd
   assert.match(teacher,/function paginateFinancialRows\(rows\)/);
   assert.match(teacher,/function renderOfficialFinancialPages\(rows\)/);
   assert.match(teacher,/rowOffset \+= batch\.length/);
+  assert.match(teacher,/numbered && \(row \|\| isLast\)/);
   assert.match(teacher,/format:'letter'/);
   assert.match(read('styles.css'),/@page \{ size: letter; margin: 0; \}/);
   const paginate=pure(teacher,'paginateFinancialRows',['OFFICIAL_NUMBERED_ROWS'],[23]);

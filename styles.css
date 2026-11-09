@@ -631,3 +631,6 @@ body.pdf-export .financial-continuation { page-break-before: always; break-befor
   .financial-continuation { page-break-before: always; break-before: page; }
   .financial-sheet { break-inside: avoid; page-break-inside: avoid; }
 }
+
+/* El anexo de evidencias utiliza el mismo tamaño Carta que la hoja principal. */
+.evidence-page { width: 215.9mm; min-height: 279.4mm; }

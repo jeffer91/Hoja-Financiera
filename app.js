@@ -250,7 +250,7 @@ function renderOfficialFinancialPages(rows) {
       const tr = document.createElement('tr');
       if (!numbered) tr.className = 'official-spacer-row';
       const cells = [
-        numbered ? String(rowOffset + index + 1) : '',
+        numbered && (row || isLast) ? String(rowOffset + index + 1) : '',
         row ? CONCEPT : '',
         date ? String(date.getMonth() + 1) : '',
         date ? String(date.getDate()) : '',
