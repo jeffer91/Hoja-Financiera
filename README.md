@@ -4,7 +4,7 @@
 
 ## Flujo actual
 
-1. Seleccionar período y consultar la cédula o ingresar los datos manualmente.
+1. Seleccionar período e ingresar manualmente la cédula, los apellidos y nombres, el título superior y, opcionalmente, la carrera.
 2. Registrar de 1 a 80 clases, con fecha dentro del período, horas entre 0,25 y 24 en intervalos de 0,25 y observaciones. Los enlaces HTTP/HTTPS son opcionales.
 3. Revisar los totales y descargar el PDF A4 o imprimirlo. El proceso termina aquí: no se solicita subir un documento firmado.
 
@@ -12,7 +12,7 @@ La tarifa queda vacía para Talento Humano y se mantienen tres espacios de firma
 
 Los borradores se guardan automáticamente en este navegador. No se sincronizan entre dispositivos. La descarga no envía datos ni archivos al servidor ni crea estadísticas de recepción.
 
-La consulta por cédula usa Firebase con espera limitada; si falla, se permite completar los datos manualmente. El catálogo de períodos se consulta a la API, con Febrero–Agosto 2026 como alternativa local. No hay dependencia de Firebase Storage para generar documentos.
+El formulario no consulta docentes por cédula ni autocompleta sus datos. Todos los campos personales son editables; un borrador guardado puede recuperarse en el mismo navegador. El catálogo de períodos se consulta a la API, con Febrero–Agosto 2026 como alternativa local. No hay dependencia de Firebase Storage para generar documentos.
 
 ## Historial administrativo
 
