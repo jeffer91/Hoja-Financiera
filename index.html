@@ -63,8 +63,12 @@
               <label>Cédula
                 <input id="cedula" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="Ej. 1713315131" required />
               </label>
-              <label>Apellidos y nombres
-                <input id="teacherName" maxlength="150" autocomplete="name" placeholder="Escribe tus apellidos y nombres" required />
+              <label>Apellidos
+                <input id="teacherLastNames" maxlength="120" autocomplete="off" placeholder="Escribe tus apellidos" required />
+                <small id="legacyNameNotice" class="helper notice" hidden>Este borrador es anterior: separa tus apellidos y nombres en los dos campos antes de continuar.</small>
+              </label>
+              <label>Nombres
+                <input id="teacherFirstNames" maxlength="120" autocomplete="off" placeholder="Escribe tus nombres" required />
               </label>
               <label>Título superior
                 <input id="teacherTitle" maxlength="200" placeholder="Ej. Magíster en Sistemas Informáticos" required />
@@ -260,7 +264,7 @@
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261109-manual-selector-v2"></script>
+  <script type="module" src="app.js?v=20261109-nombres-separados-v3"></script>
 </body>
 </html>
 

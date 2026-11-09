@@ -160,7 +160,7 @@ function updateAll() {
 function renderPreview(rows, totalHours) {
   const period = periodLabel();
   $('pvPeriod').textContent = period || '—';
-  $('pvName').textContent = $('teacherName').value.trim() || '—';
+  $('pvName').textContent = fullTeacherName() || '—';
   $('pvCedula').textContent = $('cedula').value.trim() || '—';
   $('pvTitle').textContent = $('teacherTitle').value.trim() || '—';
   $('pvHoursTotal').textContent = nfmt(totalHours);
@@ -187,7 +187,7 @@ function renderPreview(rows, totalHours) {
 
   const ev = rows.filter(r => r.evidence);
   $('evidencePage').hidden = ev.length === 0;
-  $('evName').textContent = $('teacherName').value.trim() || '—';
+  $('evName').textContent = fullTeacherName() || '—';
   $('evCareer').textContent = careerValue() || '—';
   $('evPeriod').textContent = period || '—';
   const evList = $('evidenceList');
@@ -231,6 +231,10 @@ function toggleCareerOther() {
   const other = $('teacherCareer').value === '__other__';
   $('teacherCareerOtherLabel').hidden = !other;
   if (!other) $('teacherCareerOther').value = '';
+}
+
+function fullTeacherName() {
+  return [clean($('teacherLastNames').value), clean($('teacherFirstNames').value)].filter(Boolean).join(' ');
 }
 
 function careerValue() {
@@ -283,7 +287,7 @@ function goToPage(target, validateForward = true) {
 function updateWizardSummary() {
   const teacher = $('reviewTeacher');
   if (!teacher) return;
-  teacher.textContent = $('teacherName').value.trim() || '—';
+  teacher.textContent = fullTeacherName() || '—';
   $('reviewCedula').textContent = $('cedula').value.trim() || '—';
   $('reviewCareer').textContent = careerValue() || 'No registrada';
 }
@@ -309,7 +313,7 @@ function validateTeacherFields() {
   const badCedula = !/^\d{10}$/.test(cedula.value.trim());
   markFieldInvalid(cedula, badCedula);
   if (badCedula) valid = false;
-  ['teacherName','teacherTitle'].forEach(id => {
+  ['teacherLastNames','teacherFirstNames','teacherTitle'].forEach(id => {
     const field = $(id);
     const bad = !field.value.trim();
     markFieldInvalid(field, bad);
@@ -426,7 +430,7 @@ async function downloadPdf() {
   $('pdfBtn').textContent = 'Generando…';
   saveDraft(false);
   document.body.classList.add('pdf-export');
-  const filename = 'HOJA_FINANCIERA_' + fileSafe($('teacherName').value || 'DOCENTE') + '_' + fileSafe(periodLabel()) + '.pdf';
+  const filename = 'HOJA_FINANCIERA_' + fileSafe(fullTeacherName() || 'DOCENTE') + '_' + fileSafe(periodLabel()) + '.pdf';
   const options = {
     margin: 0,
     filename,
@@ -458,7 +462,7 @@ function scheduleDraft() {
 
 function saveDraft(showMessage) {
   const data = {
-    cedula:$('cedula').value, teacherName:$('teacherName').value,
+    cedula:$('cedula').value, teacherLastNames:$('teacherLastNames').value, teacherFirstNames:$('teacherFirstNames').value,
     teacherTitle:$('teacherTitle').value, teacherCareer:careerValue(),
     periodId:activePeriod?.id||INITIAL_PERIOD_ID,
     activities:activities()
@@ -475,9 +479,18 @@ function restoreDraft() {
   try {
     const d = JSON.parse(raw);
     if (!d || typeof d !== 'object' || !Array.isArray(d.activities)) return false;
-    ['cedula','teacherName','teacherTitle'].forEach(k => {
+    ['cedula','teacherLastNames','teacherFirstNames','teacherTitle'].forEach(k => {
       if (d[k] != null) $(k).value = d[k];
     });
+    // No adivinar dónde terminan los apellidos de borradores previos.
+    // Conservar todo el nombre antiguo y solicitar que el docente lo separe.
+    if (typeof d.teacherName === 'string' && d.teacherName.trim() &&
+        !d.teacherLastNames && !d.teacherFirstNames) {
+      $('teacherLastNames').value = d.teacherName.trim();
+      $('legacyNameNotice').hidden = false;
+    } else {
+      $('legacyNameNotice').hidden = true;
+    }
     const career = typeof d.teacherCareer === 'string' ? d.teacherCareer : '';
     const isListed = Array.from($('teacherCareer').options).some(o => o.value === career);
     $('teacherCareer').value = isListed ? career : (career ? '__other__' : '');
@@ -501,6 +514,7 @@ function clearForm() {
   clearAllValidation();
   clearTimeout(draftTimer);
   form.reset();
+  $('legacyNameNotice').hidden = true;
   toggleCareerOther();
   desiredPeriodId = INITIAL_PERIOD_ID;
   activePeriod = availablePeriods[INITIAL_PERIOD_ID];

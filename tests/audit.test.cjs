@@ -172,10 +172,13 @@ test('Enlaces seguros HTTP y HTTPS, fechas reales y almacenamiento bloqueado',()
 
 });
 
-test('El docente ingresa su nombre y selecciona carrera sin consulta automática',()=>{
-  const name=form.match(/<input id="teacherName"[^>]*>/)?.[0];
-  assert.ok(name);
-  assert.doesNotMatch(name,/\breadonly\b/i);
+test('El docente ingresa apellidos y nombres por separado sin consulta automática',()=>{
+  for(const id of ['teacherLastNames','teacherFirstNames']) {
+    const field=form.match(new RegExp('<input id="'+id+'"[^>]*>'))?.[0];
+    assert.ok(field,'Falta campo '+id);
+    assert.match(field,/required/);
+    assert.doesNotMatch(field,/readonly/);
+  }
   assert.match(form,/<select id="teacherCareer">/);
   assert.match(form,/<option value="__other__">/);
   assert.match(form,/id="teacherCareerOther"/);
@@ -183,4 +186,16 @@ test('El docente ingresa su nombre y selecciona carrera sin consulta automática
   assert.doesNotMatch(teacher,/lookupTeacher|findRecord|patrociniosGenerados|rememberTitle|restoreTitle|lookupSequence|teacherSource|setFirebaseStatus/);
   assert.match(teacher,/addEventListener\('input', sanitizeCedula\)/);
   assert.match(teacher,/function careerValue\(\)/);
+  assert.match(teacher,/function fullTeacherName\(\)/);
+  assert.match(teacher,/\['teacherLastNames','teacherFirstNames','teacherTitle'\]/);
+  assert.match(teacher,/d\.teacherName/); // Migración sin pérdida de borradores antiguos.
+});
+test('El nombre completo se compone para el PDF en orden apellidos y nombres',()=>{
+  const full=pure(teacher,'fullTeacherName',['$','clean'],[
+    id=>({value:id==='teacherLastNames'?'  De   la Cruz  ': '  María   Fernanda '}),
+    str=>String(str||'').replace(/\s+/g,' ').trim()
+  ]);
+  assert.equal(full(),'De la Cruz María Fernanda');
+  assert.match(teacher,/pvName'\)\.textContent = fullTeacherName\(\)/);
+  assert.match(teacher,/evName'\)\.textContent = fullTeacherName\(\)/);
 });

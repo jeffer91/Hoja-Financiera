@@ -31,7 +31,7 @@ jobs:
         run: node --test tests/audit.test.cjs
       - name: Verify manual teacher form before deployment
         run: |
-          node -e "const fs=require('fs');const html=fs.readFileSync('index.html','utf8');const app=fs.readFileSync('app.js','utf8');if(!html.includes('Escribe tus apellidos y nombres') || /id=\"lookupBtn\"|id=\"manualTeacherBtn\"/.test(html) || app.includes('patrociniosGenerados'))process.exit(1)"
+          node -e "const fs=require('fs');const html=fs.readFileSync('index.html','utf8');const app=fs.readFileSync('app.js','utf8');if(!html.includes('id="teacherLastNames"') || !html.includes('id="teacherFirstNames"') || /id=\"lookupBtn\"|id=\"manualTeacherBtn\"/.test(html) || app.includes('patrociniosGenerados'))process.exit(1)"
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
