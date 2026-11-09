@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d2f56" />
   <meta name="description" content="Generador institucional de hojas financieras para clases de refuerzo por carrera." />
   <title>Hoja Financiera | ITSQMET</title>
-  <link rel="stylesheet" href="styles.css?v=20261109-evidencia-obligatoria-v5" />
+  <link rel="stylesheet" href="styles.css?v=20261109-formato-oficial-v6" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -171,7 +171,8 @@
     <section class="export-document" aria-hidden="true">
         <div id="pdfContent" class="pdf-content">
           <section class="pdf-page financial-page" id="financialPage">
-            <div class="doc-logo-wrap"><img src="assets/logo-itsqmet.jpg" alt="ITSQMET" class="doc-logo" /></div>
+            <div class="financial-sheet">
+              <div class="doc-logo-wrap"><img src="assets/logo-itsqmet.jpg" alt="ITSQMET" class="doc-logo" /></div>
             <div class="institution-heading">
               <strong>INSTITUTO TECNOLÓGICO SUPERIOR QUITO METROPOLITANO</strong>
               <span>QUITO - ECUADOR</span>
@@ -192,7 +193,7 @@
                   <th rowspan="2" class="col-num">No.</th>
                   <th rowspan="2" class="col-concept">CONCEPTO</th>
                   <th colspan="2" class="col-date">FECHA</th>
-                  <th rowspan="2" class="col-value">VALOR HORA<br><small>TALENTO HUMANO</small></th>
+                  <th rowspan="2" class="col-value">VALOR HORA</th>
                   <th rowspan="2" class="col-hours">TOTAL HORAS<br>EFECTIVAMENTE<br>LABORADAS</th>
                   <th rowspan="2">OBSERVACIONES</th>
                 </tr>
@@ -208,6 +209,7 @@
               <div class="signature-row"><span>FIRMA DOCENTE:</span><div class="signature-line"></div></div>
               <div class="signature-row"><span>COORDINADOR DE TITULACIÓN:</span><div class="signature-line"></div></div>
               <div class="signature-row"><span>VICERRECTORADO:</span><div class="signature-line wide"></div></div>
+            </div>
             </div>
           </section>
 
@@ -255,7 +257,7 @@
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261109-evidencia-obligatoria-v5"></script>
+  <script type="module" src="app.js?v=20261109-formato-oficial-v6"></script>
 </body>
 </html>
 

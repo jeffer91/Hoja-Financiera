@@ -6,9 +6,9 @@
 
 1. Seleccionar período e ingresar manualmente la cédula, los apellidos y los nombres en campos separados, el título superior y, opcionalmente, seleccionar la carrera (con opción de escribir otra).
 2. Registrar de 1 a 80 clases, con fecha dentro del período, horas entre 0,01 y 24,00 en intervalos de 0,01 (hasta dos decimales) y observaciones. Cada clase exige un enlace HTTPS de grabación o evidencia, compartido con permisos de visualización para revisión. Las horas declaradas deben coincidir con la evidencia.
-3. Revisar los totales y descargar el PDF A4 o imprimirlo. El proceso termina aquí: no se solicita subir un documento firmado.
+3. Revisar los totales y descargar el PDF oficial en tamaño Carta o imprimirlo. El proceso termina aquí: no se solicita subir un documento firmado.
 
-La tarifa queda vacía para Talento Humano y se mantienen tres espacios de firma. La página de evidencias se incluye en el PDF generado tras validar todas las clases. Los enlaces conservan su URL; los permisos de acceso deben configurarse en el servicio donde están alojadas. El formulario verifica la presencia y el formato HTTPS, pero no puede comprobar automáticamente los permisos reales ni la duración de las grabaciones. Sin evidencia accesible y congruente, las horas no se validarán para el pago hasta corregir la observación.
+El documento principal reproduce el formato oficial recibido: logotipo y encabezado institucional, datos del docente, MATERIAS, tabla con 23 filas numeradas y siete filas adicionales en blanco, total y tres firmas en la última página. Si existen más registros, el generador crea hojas de continuación sin perder clases. La tarifa queda vacía para Talento Humano y se mantienen tres espacios de firma. La página de evidencias se incluye en el PDF generado tras validar todas las clases. Los enlaces conservan su URL; los permisos de acceso deben configurarse en el servicio donde están alojadas. El formulario verifica la presencia y el formato HTTPS, pero no puede comprobar automáticamente los permisos reales ni la duración de las grabaciones. Sin evidencia accesible y congruente, las horas no se validarán para el pago hasta corregir la observación.
 
 Los borradores se guardan automáticamente en este navegador. No se sincronizan entre dispositivos. La descarga no envía datos ni archivos al servidor ni crea estadísticas de recepción.
 
@@ -24,6 +24,6 @@ Se conserva para consultar documentos recibidos anteriormente y gestionar perío
 
 `node --test tests/audit.test.cjs`
 
-Las pruebas verifican integridad de controles, validaciones, ausencia de carga en el formulario y protección del historial. Para verificar PDF hay que probar también el navegador: varias páginas, enlaces extensos y campos largos. La ausencia de enlace debe impedir avanzar y exportar.
+Las pruebas verifican integridad de controles, validaciones, ausencia de carga en el formulario y protección del historial. Para verificar PDF hay que probar también el navegador: papel Carta, 1/23/24/80 clases, varias páginas, enlaces extensos y campos largos. La ausencia de enlace debe impedir avanzar y exportar.
 
 Los apellidos y los nombres se solicitan por separado, y se presentan juntos (en ese orden) al revisar y generar el PDF. Los borradores antiguos conservan su nombre completo para que el docente lo separe sin perder información.

@@ -518,3 +518,116 @@ body.pdf-export .pdf-page[hidden] {
 
 /* El campo 'Otra carrera' solo se muestra al elegir la opción correspondiente. */
 .teacher-career-other[hidden] { display: none; }
+
+
+/* Formato oficial de Registro de Pago de Haberes (plantilla suministrada).
+ * Carta 215,9 x 279,4 mm; marco, 23 renglones numerados y 7 de reserva.
+ * Los enlaces de evidencia se mantienen en un anexo independiente. */
+.export-document, .pdf-content { width: 215.9mm; }
+.financial-page {
+  width: 215.9mm;
+  min-height: 279.4mm;
+  padding: 10mm 16mm;
+  background: #fff;
+  box-shadow: none;
+}
+.financial-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 258mm;
+  border: 1px solid #111;
+  color: #000;
+  background: #fff;
+}
+.financial-sheet .doc-logo-wrap {
+  height: 28mm;
+  min-height: 28mm;
+  padding: 1.5mm 0 0;
+}
+.financial-sheet .doc-logo {
+  width: 145mm;
+  max-width: 92%;
+  max-height: 26mm;
+  object-fit: contain;
+}
+.financial-sheet .institution-heading {
+  min-height: 16mm;
+  padding: 1.3mm 1mm 1.6mm;
+  margin: 0;
+  border-top: 0.7mm solid #0d2f56;
+  gap: .6mm;
+  font-size: 8pt;
+  line-height: 1.13;
+  justify-content: center;
+}
+.financial-sheet .institution-heading strong:last-child {
+  font-size: 8.3pt;
+}
+.financial-sheet .info-table,
+.financial-sheet .activities-table { flex: 0 0 auto; margin: 0; width: 100%; table-layout: fixed; border-collapse: collapse; }
+.financial-sheet .info-table th,
+.financial-sheet .info-table td {
+  padding: .7mm 1mm;
+  font-size: 7.2pt;
+  line-height: 1.15;
+  border: .25mm solid #111;
+}
+.financial-sheet .info-table th { width: 27%; }
+.financial-sheet .info-table .material-row { height: 12mm; }
+.financial-sheet .info-table .material-row td { font-size: 8pt; font-weight: 500; }
+.financial-sheet .activities-table th,
+.financial-sheet .activities-table td {
+  border: .25mm solid #111;
+  padding: .35mm .6mm;
+  font-size: 6.8pt;
+  line-height: 1.12;
+  vertical-align: middle;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.financial-sheet .activities-table thead th { font-size: 6.8pt; height: 5.5mm; }
+.financial-sheet .activities-table thead tr:last-child th { height: 3.3mm; }
+.financial-sheet .activities-table tbody tr { height: 3.8mm; }
+.financial-sheet .activities-table tbody tr.official-spacer-row { height: 2.5mm; }
+.financial-sheet .activities-table .concept-cell { font-size: 6.6pt; font-weight: 700; text-transform: none; }
+.financial-sheet .activities-table .notes-cell { font-size: 6.7pt; text-align: left; line-height: 1.13; }
+.financial-sheet .col-num { width: 4%; }
+.financial-sheet .col-concept { width: 23%; }
+.financial-sheet .col-date { width: 10%; }
+.financial-sheet .col-value { width: 9%; }
+.financial-sheet .col-hours { width: 13%; }
+.financial-sheet .activities-table tfoot th,
+.financial-sheet .activities-table tfoot td { font-size: 7pt; padding: .8mm; }
+.financial-sheet .signatures {
+  display: grid;
+  align-content: end;
+  margin-top: auto;
+  padding: 5mm 6mm 7mm;
+  gap: 5mm;
+  min-height: 38mm;
+  font-size: 7pt;
+}
+.financial-sheet .signature-row {
+  display: grid;
+  grid-template-columns: 39mm 1fr;
+  align-items: end;
+  gap: 5mm;
+  font-size: 7pt;
+}
+.financial-sheet .signature-line,
+.financial-sheet .signature-line.wide {
+  width: 94%;
+  height: 4mm;
+  border-bottom: .25mm solid #111;
+}
+.financial-page .activities-table tfoot[hidden],
+.financial-page .signatures[hidden] { display: none !important; }
+.financial-continuation { page-break-before: always; break-before: page; }
+body.pdf-export .financial-page { min-height: 279.4mm; page-break-after: auto; break-after: auto; }
+body.pdf-export .financial-continuation { page-break-before: always; break-before: page; }
+@page { size: letter; margin: 0; }
+@media print {
+  .financial-page { min-height: 279.4mm; page-break-after: auto; break-after: auto; }
+  .financial-continuation { page-break-before: always; break-before: page; }
+  .financial-sheet { break-inside: avoid; page-break-inside: avoid; }
+}

@@ -133,6 +133,28 @@ test('Dos decimales en horas y concepto fijo conservado solo en el documento',()
   assert.match(teacher,/minimumFractionDigits:2/);
   assert.match(form,/id="pvActivities"/);
 });
+test('Salida fiel a plantilla oficial en Carta con páginas adicionales sin perder filas',()=>{
+  assert.match(form,/class="financial-sheet"/);
+  assert.match(form,/REGISTRO DE PAGO DE HABERES DEL PERSONAL DIRECTIVO Y DOCENTE/);
+  assert.match(form,/<th>MATERIAS:<\/th>/);
+  assert.match(form,/COORDINADOR DE TITULACIÓN:/);
+  assert.match(form,/<th rowspan="2" class="col-value">VALOR HORA<\/th>/);
+  assert.match(teacher,/const OFFICIAL_NUMBERED_ROWS = 23/);
+  assert.match(teacher,/const OFFICIAL_SPACER_ROWS = 7/);
+  assert.match(teacher,/function paginateFinancialRows\(rows\)/);
+  assert.match(teacher,/function renderOfficialFinancialPages\(rows\)/);
+  assert.match(teacher,/rowOffset \+= batch\.length/);
+  assert.match(teacher,/format:'letter'/);
+  assert.match(read('styles.css'),/@page \{ size: letter; margin: 0; \}/);
+  const paginate=pure(teacher,'paginateFinancialRows',['OFFICIAL_NUMBERED_ROWS'],[23]);
+  for(const n of [1,23,24,80]) {
+    const data=Array.from({length:n},(_,i)=>({notes:'Clase '+i}));
+    const pages=paginate(data);
+    assert.equal(pages.reduce((total,group)=>total+group.length,0),n);
+    assert.ok(pages.every(group=>group.length<=23));
+    if(n>23) assert.ok(pages.length>1);
+  }
+});
 test('Evidencia obligatoria por clase, horas coincidentes y permisos para revisión',()=>{
   const evidenceField=form.match(/<input class="activity-evidence"[^>]*\/>/)?.[0];
   assert.ok(evidenceField,'Falta el campo de enlace');

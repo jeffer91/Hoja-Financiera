@@ -173,25 +173,7 @@ function renderPreview(rows, totalHours) {
   $('pvTitle').textContent = $('teacherTitle').value.trim() || '—';
   $('pvHoursTotal').textContent = nfmt(totalHours);
 
-  const tbody = $('pvActivities');
-  tbody.replaceChildren();
-  rows.forEach((r, i) => {
-    const d = parseDate(r.date);
-    const tr = document.createElement('tr');
-    const cells = [
-      String(i + 1), CONCEPT, d ? String(d.getMonth() + 1) : '',
-      d ? String(d.getDate()) : '', r.valueHour ? nfmt(r.valueHour) : '',
-      r.hours ? nfmt(r.hours) : '', r.notes
-    ];
-    cells.forEach((v, j) => {
-      const td = document.createElement('td');
-      td.textContent = v;
-      if (j === 1) td.className = 'concept-cell';
-      if (j === 6) td.className = 'notes-cell';
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
+  renderOfficialFinancialPages(rows);
 
   const ev = rows.filter(r => r.evidence);
   $('evidencePage').hidden = ev.length === 0;
@@ -213,6 +195,82 @@ function renderPreview(rows, totalHours) {
     addPair(grid, 'Enlace:', r.evidence, true);
     box.append(head, grid);
     evList.appendChild(box);
+  });
+}
+
+// El formato institucional de referencia usa papel Carta y 23 renglones
+// numerados, más siete renglones vacíos de reserva. No se descartan clases:
+// si exceden la capacidad, se generan hojas de continuación.
+const OFFICIAL_NUMBERED_ROWS = 23;
+const OFFICIAL_SPACER_ROWS = 7;
+
+function paginateFinancialRows(rows) {
+  const pages = [];
+  let page = [], estimatedUnits = 0;
+  for (const row of rows) {
+    // Las observaciones largas ocupan más líneas: usar menos registros
+    // en esa hoja para evitar que el PDF corte la tabla o las firmas.
+    const cost = 1 + Math.min(18, Math.floor((row.notes || '').length / 90));
+    if (page.length && (page.length >= OFFICIAL_NUMBERED_ROWS || estimatedUnits + cost > OFFICIAL_NUMBERED_ROWS)) {
+      pages.push(page);
+      page = [];
+      estimatedUnits = 0;
+    }
+    page.push(row);
+    estimatedUnits += cost;
+  }
+  pages.push(page);
+  return pages;
+}
+
+function renderOfficialFinancialPages(rows) {
+  const content = $('pdfContent');
+  const first = $('financialPage');
+  content.querySelectorAll('.financial-continuation').forEach(node => node.remove());
+
+  const pageRows = paginateFinancialRows(rows);
+  let rowOffset = 0;
+  pageRows.forEach((batch, pageIndex) => {
+    const isLast = pageIndex === pageRows.length - 1;
+    const sheet = pageIndex === 0 ? first : first.cloneNode(true);
+
+    if (pageIndex > 0) {
+      sheet.removeAttribute('id');
+      sheet.classList.add('financial-continuation');
+      sheet.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+      content.insertBefore(sheet, $('evidencePage'));
+    }
+
+    const tbody = sheet.querySelector('.activities-table tbody');
+    tbody.replaceChildren();
+    for (let index = 0; index < OFFICIAL_NUMBERED_ROWS + OFFICIAL_SPACER_ROWS; index++) {
+      const numbered = index < OFFICIAL_NUMBERED_ROWS;
+      const row = numbered ? batch[index] : null;
+      const date = row ? parseDate(row.date) : null;
+      const tr = document.createElement('tr');
+      if (!numbered) tr.className = 'official-spacer-row';
+      const cells = [
+        numbered ? String(rowOffset + index + 1) : '',
+        row ? CONCEPT : '',
+        date ? String(date.getMonth() + 1) : '',
+        date ? String(date.getDate()) : '',
+        row && row.valueHour != null ? nfmt(row.valueHour) : '',
+        row && row.hours ? nfmt(row.hours) : '',
+        row ? row.notes : ''
+      ];
+      cells.forEach((value, column) => {
+        const td = document.createElement('td');
+        td.textContent = value;
+        if (column === 1) td.className = 'concept-cell';
+        if (column === 6) td.className = 'notes-cell';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+
+    sheet.querySelector('.activities-table tfoot').hidden = !isLast;
+    sheet.querySelector('.signatures').hidden = !isLast;
+    rowOffset += batch.length;
   });
 }
 
@@ -446,7 +504,7 @@ async function downloadPdf() {
     filename,
     image: {type:'jpeg', quality:0.98},
     html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff'},
-    jsPDF: {unit:'mm', format:'a4', orientation:'portrait'},
+    jsPDF: {unit:'mm', format:'letter', orientation:'portrait'},
     pagebreak: {mode:['css','legacy']}
   };
   try {
