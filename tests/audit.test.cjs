@@ -165,8 +165,20 @@ test('Enlaces seguros HTTP y HTTPS, fechas reales y almacenamiento bloqueado',()
   const date=pure(teacher,'validClassDate',['activePeriod'],[null]);
   assert.equal(date('2026-02-30'),false);
   assert.equal(date('2026-02-28'),true);
-  const remember=pure(teacher,'rememberTitle',['$','localStorage','TITLES'],[
-    id=>({value:id==='cedula'?'1718435009':'Magíster'}),
-    {getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}},'test']);
-  assert.doesNotThrow(()=>remember());
+  const cedula={value:'1718-435 009'};
+  const sanitize=pure(teacher,'sanitizeCedula',['$'],[()=>cedula]);
+  sanitize();
+  assert.equal(cedula.value,'1718435009');
+
+});
+
+test('El docente ingresa sus datos sin búsqueda ni autocompletado',()=>{
+  for(const id of ['teacherName','teacherCareer']) {
+    const tag=form.match(new RegExp('<input[^>]*id="'+id+'"[^>]*>'))?.[0];
+    assert.ok(tag,'Falta campo '+id);
+    assert.doesNotMatch(tag,/\breadonly\b/i,'El campo debe ser editable');
+  }
+  assert.doesNotMatch(form,/id="(?:lookupBtn|manualTeacherBtn|firebaseStatus|lookupMessage)"/);
+  assert.doesNotMatch(teacher,/lookupTeacher|findRecord|patrociniosGenerados|rememberTitle|restoreTitle|lookupSequence|teacherSource|setFirebaseStatus/);
+  assert.match(teacher,/addEventListener\('input', sanitizeCedula\)/);
 });
