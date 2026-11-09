@@ -2,7 +2,6 @@ import {apiRequest} from './api-config.js';
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const CONCEPT = 'Clases de refuerzo por carrera';
 const DRAFT = 'hoja-financiera-draft-v1';
-const TITLES = 'hoja-financiera-titles-v1';
 const INITIAL_PERIOD_ID = '2026-02_2026-08';
 const INITIAL_PERIOD = Object.freeze({id: INITIAL_PERIOD_ID, mesInicio:2, anioInicio:2026, mesFin:8, anioFin:2026, etiqueta:'Febrero 2026 - Agosto 2026'});
 const $ = id => document.getElementById(id);
@@ -11,8 +10,6 @@ const list = $('activities');
 const template = $('activityTemplate');
 const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y generar'];
 let currentWizardPage = 1;
-let teacherSource = '';
-let lookupSequence = 0;
 const validatedPages = new Set();
 let availablePeriods = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
 let desiredPeriodId = INITIAL_PERIOD_ID;
@@ -92,21 +89,7 @@ function bind() {
     if (validateForm()) await downloadPdf();
   });
   $('addActivityBtn').addEventListener('click', () => addActivity());
-  $('lookupBtn').addEventListener('click', lookupTeacher);
-  $('manualTeacherBtn').addEventListener('click', () => {
-    if (!/^\d{10}$/.test($('cedula').value.trim())) {
-      toast('Ingresa primero la cédula de 10 dígitos.');
-      $('cedula').focus();
-      return;
-    }
-    manualTeacher('Completa y revisa los datos del docente.');
-    $('teacherName').focus();
-  });
-  $('cedula').addEventListener('input', cedulaChanged);
-  $('cedula').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); lookupTeacher(); }
-  });
-  $('teacherTitle').addEventListener('change', rememberTitle);
+  $('cedula').addEventListener('input', sanitizeCedula);
   $('periodSelect').addEventListener('change', () => {
     desiredPeriodId=$('periodSelect').value;
     activePeriod=availablePeriods[desiredPeriodId]||availablePeriods[INITIAL_PERIOD_ID];
@@ -237,116 +220,10 @@ function addPair(grid, label, value, url) {
   grid.append(a, b);
 }
 
-async function lookupTeacher() {
-  const cedula = $('cedula').value.replace(/\D/g, '').slice(0, 10);
-  $('cedula').value = cedula;
-  const msg = $('lookupMessage');
-  msg.className = 'helper';
-  if (!/^\d{10}$/.test(cedula)) {
-    msg.textContent = 'La cédula debe tener 10 dígitos.';
-    msg.classList.add('error');
-    return;
-  }
-  const request = ++lookupSequence;
-  $('lookupBtn').disabled = true;
-  $('lookupBtn').textContent = 'Buscando…';
-  msg.textContent = 'Consultando Firebase…';
-  try {
-    const response = await fetch('https://repaso-fire-d8ceb-default-rtdb.firebaseio.com/patrociniosGenerados/' + cedula + '.json', {signal: AbortSignal.timeout(8000)});
-    if (!response.ok) throw Error('Consulta no disponible');
-    const value = await response.json();
-    if (request !== lookupSequence || $('cedula').value !== cedula) return;
-    if (!value) return manualTeacher('No consta en Firebase. Completa los datos del docente nuevo.');
-    const record = findRecord(value, cedula);
-    if (!record || !record.docente) return manualTeacher('No se encontró el nombre. Puedes ingresarlo manualmente.');
-    teacherSource = 'firebase';
-    $('teacherName').value = clean(record.docente);
-    $('teacherName').readOnly = true;
-    $('teacherName').placeholder = 'Automático o escribe un docente nuevo';
-    $('teacherCareer').value = clean(record.carrera || '');
-    $('teacherCareer').readOnly = true;
-    $('manualTeacherBtn').textContent = '+ Docente nuevo';
-    restoreTitle(cedula);
-    msg.textContent = 'Docente encontrado en Firebase.';
-    msg.className = 'helper success';
-    setFirebaseStatus('Firebase conectado', true);
-    updateAll();
-  } catch (e) {
-    console.error(e);
-    if (request !== lookupSequence || $('cedula').value !== cedula) return;
-    setFirebaseStatus('Sin acceso a la consulta', false);
-    manualTeacher('Firebase no pudo consultarse. Puedes completar los datos manualmente.');
-  } finally {
-    if (request === lookupSequence) {
-      $('lookupBtn').disabled = false;
-      $('lookupBtn').textContent = 'Buscar';
-    }
-  }
-}
-
-function findRecord(value, cedula) {
-  if (!value || typeof value !== 'object') return null;
-  if (value.docente && (!value.cedula || String(value.cedula) === cedula)) return value;
-  for (const child of Object.values(value)) {
-    const found = findRecord(child, cedula);
-    if (found) return found;
-  }
-  return null;
-}
-
-function manualTeacher(message) {
-  lookupSequence++; // Invalida búsquedas anteriores para proteger los datos ingresados.
-  teacherSource = 'manual';
-  $('lookupBtn').disabled = false;
-  $('lookupBtn').textContent = 'Buscar';
-  $('teacherName').readOnly = false;
-  $('teacherCareer').readOnly = false;
-  $('teacherName').placeholder = 'Escribe apellidos y nombres';
-  $('teacherCareer').placeholder = 'Escribe la carrera (opcional)';
-  $('manualTeacherBtn').textContent = 'Ingreso manual activo';
-  const msg = $('lookupMessage');
-  msg.textContent = message;
-  msg.className = 'helper notice';
-  updateAll();
-}
-
-function cedulaChanged() {
+// La cédula se revisa localmente; no se consultan datos de docentes.
+function sanitizeCedula() {
   const input = $('cedula');
   input.value = input.value.replace(/\D/g, '').slice(0, 10);
-  lookupSequence++;
-  teacherSource = '';
-  $('lookupMessage').textContent = '';
-  $('lookupMessage').className = 'helper';
-  $('lookupBtn').disabled = false;
-  $('lookupBtn').textContent = 'Buscar';
-  $('teacherName').value = '';
-  $('teacherName').readOnly = true;
-  $('teacherName').placeholder = 'Automático o escribe un docente nuevo';
-  $('teacherTitle').value = ''; // Nunca reutilizar título de otra cédula.
-  $('teacherCareer').value = '';
-  $('teacherCareer').readOnly = true;
-  $('teacherCareer').placeholder = 'Automática o ingresa la carrera';
-  $('manualTeacherBtn').textContent = '+ Docente nuevo';
-  if (input.value.length === 10) lookupTeacher();
-  updateAll();
-}
-
-function rememberTitle() {
-  const cedula = $('cedula').value.trim();
-  const title = $('teacherTitle').value.trim();
-  if (!/^\d{10}$/.test(cedula) || !title) return;
-  let data = {};
-  try { data = JSON.parse(localStorage.getItem(TITLES) || '{}') || {}; } catch (_) {}
-  if (typeof data !== 'object' || Array.isArray(data)) data = {};
-  data[cedula] = title;
-  try { localStorage.setItem(TITLES, JSON.stringify(data)); } catch (_) {}
-}
-
-function restoreTitle(cedula) {
-  try {
-    const data = JSON.parse(localStorage.getItem(TITLES) || '{}');
-    if (data[cedula] && !$('teacherTitle').value.trim()) $('teacherTitle').value = data[cedula];
-  } catch (_) {}
 }
 
 function periodLabel() {
@@ -498,7 +375,6 @@ function validateWizardPage(page) {
     if (!validateTeacherFields()) {
       return reportValidationError(1, 'Revisa los campos marcados en rojo de los datos del docente.');
     }
-    rememberTitle();
     return true;
   }
   if (page === 2) {
@@ -515,7 +391,6 @@ function validateForm() {
   if (!ensurePeriod()) return false;
   if (!validateWizardPage(1)) return false;
   if (!validateWizardPage(2)) return false;
-  rememberTitle();
   return true;
 }
 
@@ -571,7 +446,6 @@ function scheduleDraft() {
 function saveDraft(showMessage) {
   const data = {
     cedula:$('cedula').value, teacherName:$('teacherName').value,
-    teacherSource:teacherSource,
     teacherTitle:$('teacherTitle').value, teacherCareer:$('teacherCareer').value,
     periodId:activePeriod?.id||INITIAL_PERIOD_ID,
     activities:activities()
@@ -591,17 +465,9 @@ function restoreDraft() {
     ['cedula','teacherName','teacherTitle','teacherCareer'].forEach(k => {
       if (d[k] != null) $(k).value = d[k];
     });
-    teacherSource = d.teacherName ? (d.teacherSource === 'firebase' ? 'firebase' : 'manual') : '';
     desiredPeriodId = typeof d.periodId==='string' ? d.periodId : INITIAL_PERIOD_ID;
     activePeriod = availablePeriods[desiredPeriodId] || availablePeriods[INITIAL_PERIOD_ID];
     renderPeriodSelector();
-    $('teacherName').readOnly = teacherSource !== 'manual';
-    $('teacherCareer').readOnly = teacherSource !== 'manual';
-    $('manualTeacherBtn').textContent = teacherSource === 'manual' ? 'Ingreso manual activo' : '+ Docente nuevo';
-    if (teacherSource === 'manual') {
-      $('lookupMessage').textContent = 'Docente de ingreso manual en borrador. Verifica los datos.';
-      $('lookupMessage').className = 'helper notice';
-    }
     list.replaceChildren();
     (d.activities.length ? d.activities.slice(0,80) : [{}]).forEach(addActivity);
     return true;
@@ -621,13 +487,6 @@ function clearForm() {
   activePeriod = availablePeriods[INITIAL_PERIOD_ID];
   renderPeriodSelector();
   renderPeriodAvailability();
-  lookupSequence++;
-  teacherSource = '';
-  $('teacherName').readOnly = true;
-  $('teacherCareer').readOnly = true;
-  $('manualTeacherBtn').textContent = '+ Docente nuevo';
-  $('lookupMessage').className = 'helper';
-  $('lookupMessage').textContent = '';
   list.replaceChildren();
   addActivity();
   updateAll();
@@ -661,10 +520,3 @@ function toast(text) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => el.classList.remove('show'), 2600);
 }
-function setFirebaseStatus(text, ok) {
-  const el = $('firebaseStatus');
-  if (!el) return;
-  el.textContent = text;
-  el.style.opacity = ok ? '1' : '.75';
-}
-
