@@ -64,7 +64,7 @@ function setActivePeriod(data) {
 function renderPeriodAvailability() {
   const selected=activePeriod;
   const banner=$('periodUnavailable');
-  banner.hidden=!!selected;
+  banner.hidden=Boolean(selected);
   if(!selected)banner.textContent='Selecciona un período lectivo válido.';
   ['printBtn','pdfBtn'].forEach(id => {$(id).disabled=!selected;});
 }
@@ -171,6 +171,7 @@ function renderPreview(rows, totalHours) {
   $('pvName').textContent = fullTeacherName() || '—';
   $('pvCedula').textContent = $('cedula').value.trim() || '—';
   $('pvTitle').textContent = $('teacherTitle').value.trim() || '—';
+  $('pvSubject').textContent = careerValue() || CONCEPT;
   $('pvHoursTotal').textContent = nfmt(totalHours);
 
   renderOfficialFinancialPages(rows);

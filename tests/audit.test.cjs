@@ -258,3 +258,16 @@ test('El nombre completo se compone para el PDF en orden apellidos y nombres',()
   assert.match(teacher,/pvName'\)\.textContent = fullTeacherName\(\)/);
   assert.match(teacher,/evName'\)\.textContent = fullTeacherName\(\)/);
 });
+
+test('El formulario inicia sin mostrar aviso de verificación falso',()=>{
+  assert.ok(form.includes('class="period-warning" role="alert" hidden'));
+  assert.doesNotMatch(form,/Verificando disponibilidad del formulario/);
+  assert.ok(read('styles.css').includes('.period-warning[hidden] { display:none !important; }'));
+});
+test('El PDF utiliza la carrera seleccionada en MATERIAS y mantiene el concepto',()=>{
+  assert.ok(form.includes('<td id="pvSubject">'));
+  assert.ok(teacher.includes("$('pvSubject').textContent = careerValue() || CONCEPT;"));
+  assert.ok(teacher.includes("const CONCEPT = 'Clases de refuerzo por carrera';"));
+  assert.ok(form.includes('class="teacher-career-choice"'));
+  assert.ok(read('styles.css').includes('.teacher-grid .teacher-career-choice'));
+});
