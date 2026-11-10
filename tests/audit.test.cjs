@@ -271,3 +271,18 @@ test('El PDF utiliza la carrera seleccionada en MATERIAS y mantiene el concepto'
   assert.ok(form.includes('class="teacher-career-choice"'));
   assert.ok(read('styles.css').includes('.teacher-grid .teacher-career-choice'));
 });
+
+test('El logotipo institucional original existe y se usa en hoja y evidencias',()=>{
+  const asset=path.join(root,'assets/logo-formato-institucional.jpg');
+  assert.ok(fs.existsSync(asset),'Logotipo original ausente');
+  const bytes=fs.readFileSync(asset);
+  assert.equal(bytes.length,26711,'El logotipo original cambió');
+  assert.deepEqual([...bytes.subarray(0,3)],[255,216,255],'Archivo JPEG inválido');
+  assert.ok(form.includes('class="doc-logo-wrap"><img src="assets/logo-formato-institucional.jpg"'));
+  assert.ok(form.includes('<img src="assets/logo-formato-institucional.jpg" alt="Logotipo institucional original"'));
+  const css=read('styles.css');
+  assert.ok(css.includes('width: 132mm;'));
+  assert.ok(css.includes('height: 25.2mm;'));
+  assert.ok(css.includes('object-fit: fill;'));
+  assert.ok(css.includes('border-top: 0;'));
+});
