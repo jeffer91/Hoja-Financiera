@@ -671,9 +671,29 @@ function fail(message, el) {
 async function renderPdfPage(pdf, page, index, pageWidth, pageHeight) {
   const canvas = await window.html2canvas(page, {
     scale: 2, useCORS: true, backgroundColor: '#ffffff',
-    scrollX: 0, scrollY: 0, logging: false
+    scrollX: 0, scrollY: 0, logging: false,
+    onclone(clonedDocument) {
+      // El PDF está fuera de pantalla en la interfaz. Reubicarlo solo en la
+      // copia de html2canvas evita capturas en blanco por recorte del viewport.
+      const wrapper = clonedDocument.querySelector('.export-document');
+      if (wrapper) {
+        wrapper.style.position = 'absolute';
+        wrapper.style.left = '0px';
+        wrapper.style.top = '0px';
+        wrapper.style.zIndex = '0';
+      }
+    }
   });
   if (!canvas.width || !canvas.height) throw Error('No se pudo dibujar una hoja del PDF.');
+  const samples = canvas.getContext('2d', {willReadFrequently:true})
+    .getImageData(0, 0, canvas.width, canvas.height).data;
+  let darkSamples = 0;
+  for (let i = 0; i < samples.length; i += 400) {
+    if (samples[i] < 220 || samples[i+1] < 220 || samples[i+2] < 220) darkSamples++;
+  }
+  if (darkSamples < 50) {
+    throw Error('La hoja ' + (index + 1) + ' se capturó en blanco. No se descargó un PDF incompleto.');
+  }
   const pageRect = page.getBoundingClientRect();
   const naturalHeight = pageWidth * canvas.height / canvas.width;
   const drawHeight = Math.min(pageHeight, naturalHeight);

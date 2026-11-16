@@ -402,3 +402,10 @@ test('El anexo se distribuye en grupos de cuatro y los hipervínculos siguen sie
   assert.match(teacher,/link\.href=value/);
   assert.match(read('styles.css'),/page-break-before: auto !important/);
 });
+
+test('No se descarga una hoja en blanco si falla la captura visual',()=>{
+  assert.match(teacher,/onclone\(clonedDocument\)/);
+  assert.match(teacher,/wrapper\.style\.left = '0px'/);
+  assert.match(teacher,/darkSamples < 50/);
+  assert.match(teacher,/No se descargó un PDF incompleto/);
+});
