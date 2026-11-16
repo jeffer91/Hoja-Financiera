@@ -29,3 +29,5 @@ Las pruebas verifican integridad de controles, validaciones, ausencia de carga e
 Los apellidos y los nombres se solicitan por separado, y se presentan juntos (en ese orden) al revisar y generar el PDF. Los borradores antiguos conservan su nombre completo para que el docente lo separe sin perder información.
 
 Las filas de CONCEPTO en el PDF institucional toman el tipo de clase elegido. Borradores anteriores con temas libres los conservan como nota en Observaciones y requieren seleccionar una categoría válida antes de generar el PDF. La paginación visible de cinco clases es independiente de la paginación de las hojas del PDF.
+
+La exportación del PDF vuelve a componer y comprueba la tabla justo antes de descargar o imprimir: numeración de clases, concepto seleccionado, mes y día derivados de la fecha, tarifa siempre vacía, horas y observaciones opcionales. Se verifican también filas de continuación y se evita la fragmentación por fila de html2pdf.

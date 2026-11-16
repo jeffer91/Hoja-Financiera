@@ -349,3 +349,28 @@ test('Observaciones opcionales y migración de tema libre sin pérdida',()=>{
   assert.match(teacher,/currentClassPage = 1/);
   assert.match(read('styles.css'),/\.activity-fields\[hidden\]/);
 });
+
+test('Cada fila del PDF contiene número, concepto elegido, mes, día, valor hora vacío y horas',()=>{
+  const parse=pure(teacher,'parseDate');
+  const fmt=pure(teacher,'nfmt');
+  const options=['Clase de refuerzo por carrera','Clase de metodología','Clase de explicación del proceso'];
+  const normalize=pure(teacher,'normalizeClassTopic',['CLASS_TYPES'],[options]);
+  const rowValues=pure(teacher,'financialRowValues',['parseDate','normalizeClassTopic','CONCEPT','nfmt'],
+    [parse,normalize,'Clases de refuerzo por carrera',fmt]);
+  const input={date:'2026-02-08',topic:options[1],hours:2,notes:'',valueHour:999};
+  assert.deepEqual(rowValues(input,1),['1',options[1],'2','8','','2,00','']);
+  assert.deepEqual(rowValues({...input,date:'2026-11-16',topic:options[2],hours:1.5,notes:'Revisión'},24),
+    ['24',options[2],'11','16','','1,50','Revisión']);
+  assert.deepEqual(rowValues(null,3),['3','','','','','','']);
+  assert.match(teacher,/tr\.classList\.add\('official-class-row'\)/);
+  assert.match(teacher,/tbody\.replaceChildren\(fragment\)/);
+  assert.match(teacher,/validateFinancialPdfRows\(rows\)/);
+  assert.match(teacher,/prepareFinancialPdf\(\)/);
+});
+test('El PDF no pagina cada fila por CSS, preserva tamaño carta y comprueba la tabla antes de exportar',()=>{
+  assert.match(teacher,/pagebreak: \{mode:\['legacy'\], before:\['\.financial-continuation','\.evidence-page'\]\}/);
+  assert.match(teacher,/prepareFinancialPdf\(\);\s*await Promise\.all/);
+  assert.match(read('styles.css'),/tbody tr \{ display: table-row !important; \}/);
+  assert.match(read('styles.css'),/@page \{ size: letter; margin: 0; \}/);
+  assert.match(teacher,/validateFinancialPdfRows/);
+});

@@ -503,7 +503,7 @@ body.pdf-export .pdf-page:last-child {
 /* Avoid rounding a full-height section onto an extra blank A4 page. */
 body.pdf-export .pdf-page { min-height: 0; }
 body.pdf-export .financial-page { page-break-after: auto; }
-body.pdf-export .evidence-page { page-break-before: always; }
+body.pdf-export .evidence-page { page-break-before: auto; }
 .evidence-grid { grid-template-columns: 35mm minmax(0, 1fr); }
 .evidence-grid > div { min-width: 0; }
 .evidence-url, .evidence-url a,
@@ -629,7 +629,7 @@ body.pdf-export .pdf-page[hidden] {
 .financial-page .signatures[hidden] { display: none !important; }
 .financial-continuation { page-break-before: always; break-before: page; }
 body.pdf-export .financial-page { min-height: 279.4mm; page-break-after: auto; break-after: auto; }
-body.pdf-export .financial-continuation { page-break-before: always; break-before: page; }
+body.pdf-export .financial-continuation { page-break-before: auto; break-before: auto; }
 @page { size: letter; margin: 0; }
 @media print {
   .financial-page { min-height: 279.4mm; page-break-after: auto; break-after: auto; }
@@ -703,4 +703,14 @@ body.pdf-export .financial-continuation { page-break-before: always; break-befor
   .activity-head-actions { gap:5px; }
   .activity-toggle { padding:6px 9px; }
   .activity-heading .activity-summary { font-size:10px; }
+}
+
+/* Integridad de las filas del formulario oficial durante exportación e impresión. */
+body.pdf-export .financial-sheet .activities-table tbody { display: table-row-group !important; }
+body.pdf-export .financial-sheet .activities-table tbody tr { display: table-row !important; }
+body.pdf-export .financial-sheet .activities-table tbody td { display: table-cell !important; }
+@media print {
+  .financial-sheet .activities-table tbody { display: table-row-group !important; }
+  .financial-sheet .activities-table tbody tr { display: table-row !important; }
+  .financial-sheet .activities-table tbody td { display: table-cell !important; }
 }

@@ -109,7 +109,11 @@ function bind() {
     saveDraft(false);
   });
   $('saveDraftBtn').addEventListener('click', () => saveDraft(true));
-  $('printBtn').addEventListener('click', () => { if (validateForm()) window.print(); });
+  $('printBtn').addEventListener('click', () => {
+    if (!validateForm()) return;
+    try { prepareFinancialPdf(); window.print(); }
+    catch (error) { console.error(error); toast('No se pudo preparar la tabla del PDF: ' + error.message); }
+  });
   $('clearBtn').addEventListener('click', clearForm);
 
   document.querySelectorAll('[data-next-page]').forEach(btn => {
@@ -325,6 +329,20 @@ function paginateFinancialRows(rows) {
   return pages;
 }
 
+// Una fila por clase, con fecha desglosada. Valor hora permanece SIEMPRE vacío.
+function financialRowValues(row, number, showNumber = true) {
+  const date = row ? parseDate(row.date) : null;
+  return [
+    showNumber ? String(number) : '',
+    row ? (normalizeClassTopic(row.topic) || CONCEPT) : '',
+    date ? String(date.getMonth() + 1) : '',
+    date ? String(date.getDate()) : '',
+    '',
+    row ? nfmt(row.hours) : '',
+    row ? (row.notes || '') : ''
+  ];
+}
+
 function renderOfficialFinancialPages(rows) {
   const content = $('pdfContent');
   const first = $('financialPage');
@@ -344,36 +362,60 @@ function renderOfficialFinancialPages(rows) {
     }
 
     const tbody = sheet.querySelector('.activities-table tbody');
-    tbody.replaceChildren();
+    if (!tbody) throw Error('No se encontró la tabla de clases del PDF.');
+    // Crear todas las filas antes de insertarlas evita tablas incompletas durante la exportación.
+    const fragment = document.createDocumentFragment();
     for (let index = 0; index < OFFICIAL_NUMBERED_ROWS + OFFICIAL_SPACER_ROWS; index++) {
       const numbered = index < OFFICIAL_NUMBERED_ROWS;
       const row = numbered ? batch[index] : null;
-      const date = row ? parseDate(row.date) : null;
       const tr = document.createElement('tr');
       if (!numbered) tr.className = 'official-spacer-row';
-      const cells = [
-        numbered && (row || isLast) ? String(rowOffset + index + 1) : '',
-        row ? (normalizeClassTopic(row.topic) || CONCEPT) : '',
-        date ? String(date.getMonth() + 1) : '',
-        date ? String(date.getDate()) : '',
-        row && row.valueHour != null ? nfmt(row.valueHour) : '',
-        row && row.hours ? nfmt(row.hours) : '',
-        row ? row.notes : ''
-      ];
-      cells.forEach((value, column) => {
+      if (row) tr.classList.add('official-class-row');
+      financialRowValues(row, rowOffset + index + 1, numbered && (Boolean(row) || isLast)).forEach((value, column) => {
         const td = document.createElement('td');
         td.textContent = value;
         if (column === 1) td.className = 'concept-cell';
         if (column === 6) td.className = 'notes-cell';
         tr.appendChild(td);
       });
-      tbody.appendChild(tr);
+      fragment.appendChild(tr);
     }
+    tbody.replaceChildren(fragment);
+    tbody.dataset.classCount = String(batch.length);
 
     sheet.querySelector('.activities-table tfoot').hidden = !isLast;
     sheet.querySelector('.signatures').hidden = !isLast;
     rowOffset += batch.length;
   });
+}
+
+// Comprobar las filas reales, sus columnas y sus alturas antes de descargar o imprimir.
+function validateFinancialPdfRows(rows) {
+  const sheets = [...$('pdfContent').querySelectorAll('.financial-page')];
+  const rendered = sheets.flatMap(sheet =>
+    [...sheet.querySelectorAll('.activities-table tbody tr.official-class-row')]);
+  if (rendered.length !== rows.length) {
+    throw Error('Faltan clases en la tabla: ' + rendered.length + ' de ' + rows.length + '.');
+  }
+  for (const [index, row] of rows.entries()) {
+    const cells = [...rendered[index].cells].map(cell => cell.textContent.trim());
+    const expected = financialRowValues(row, index + 1);
+    if (cells.length !== 7 || cells.some((cell, column) => cell !== expected[column])) {
+      throw Error('La clase ' + (index + 1) + ' no coincide con los datos registrados.');
+    }
+    // La tabla se renderiza fuera de pantalla, pero nunca debe quedar oculta o sin altura.
+    if (rendered[index].getBoundingClientRect().height < 2) {
+      throw Error('La clase ' + (index + 1) + ' no es visible para la exportación.');
+    }
+  }
+  return true;
+}
+
+function prepareFinancialPdf() {
+  const rows = activities();
+  const hours = rows.reduce((total, row) => total + row.hours, 0);
+  renderPreview(rows, hours);
+  validateFinancialPdfRows(rows);
 }
 
 function addPair(grid, label, value, url) {
@@ -594,7 +636,8 @@ async function downloadPdf() {
   if (exporting) return;
   if (!window.html2pdf) {
     toast('No se cargó el generador PDF. Usa Imprimir → Guardar como PDF.');
-    window.print();
+    try { prepareFinancialPdf(); window.print(); }
+    catch (error) { console.error(error); toast('No se pudo preparar la tabla del PDF: ' + error.message); }
     return;
   }
   exporting = true;
@@ -610,16 +653,18 @@ async function downloadPdf() {
     html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff'},
     jsPDF: {unit:'mm', format:'letter', orientation:'portrait'},
     enableLinks: true,
-    pagebreak: {mode:['css','legacy']}
+    // Las páginas financieras ya se componen completas: evitar que CSS las parta por filas.
+    pagebreak: {mode:['legacy'], before:['.financial-continuation','.evidence-page']}
   };
   try {
     toast('Generando PDF…');
+    prepareFinancialPdf();
     await Promise.all([...$('pdfContent').querySelectorAll('img')].map(img => img.decode().catch(() => {})));
     await window.html2pdf().set(options).from($('pdfContent')).save();
     toast('PDF generado. El proceso ha finalizado.');
   } catch (e) {
     console.error(e);
-    toast('No se pudo descargar directamente. Usa Imprimir → Guardar como PDF.');
+    toast('No se pudo generar el PDF: ' + e.message);
   } finally {
     document.body.classList.remove('pdf-export');
     exporting = false;
