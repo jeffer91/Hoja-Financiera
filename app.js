@@ -25,11 +25,8 @@ let activePeriod = {...INITIAL_PERIOD};
 let periodState = 'loading';
 let exporting = false;
 let draftTimer;
-bind();
-if (!restoreDraft()) addActivity();
-updateAll();
-goToPage(1, false);
-listenActivePeriod();
+// El arranque se ejecuta al final, después de declarar las constantes y funciones.
+
 
 
 function validPeriod(entry) {
@@ -775,3 +772,12 @@ function toast(text) {
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => el.classList.remove('show'), 2600);
 }
+
+
+// Inicializar después de OFFICIAL_NUMBERED_ROWS y OFFICIAL_SPACER_ROWS
+// para evitar el error temporal de JavaScript al renderizar el PDF.
+bind();
+if (!restoreDraft()) addActivity();
+updateAll();
+goToPage(1, false);
+listenActivePeriod();

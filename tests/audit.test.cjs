@@ -374,3 +374,12 @@ test('El PDF no pagina cada fila por CSS, preserva tamaño carta y comprueba la 
   assert.match(read('styles.css'),/@page \{ size: letter; margin: 0; \}/);
   assert.match(teacher,/validateFinancialPdfRows/);
 });
+
+test('El arranque del formulario sucede después de las constantes que usa la tabla PDF',()=>{
+  const numbered=teacher.indexOf('const OFFICIAL_NUMBERED_ROWS = 23;');
+  const spacer=teacher.indexOf('const OFFICIAL_SPACER_ROWS = 7;');
+  const bootstrap=teacher.lastIndexOf('\\nbind();\\nif (!restoreDraft()) addActivity();');
+  assert.ok(numbered > 0 && spacer > numbered,'Faltan constantes del formato oficial');
+  assert.ok(bootstrap > spacer,'La inicialización no debe ejecutarse antes de declarar las constantes de la tabla');
+  assert.equal(teacher.slice(0,numbered).includes('\\nbind();\\n'),false,'No inicializar durante la zona temporal muerta');
+});
