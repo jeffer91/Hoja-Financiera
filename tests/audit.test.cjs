@@ -97,7 +97,7 @@ test('PDF institucional tiene ambas páginas y tres firmas',()=>{
   for(const term of ['FIRMA DOCENTE','COORDINADOR DE TITULACIÓN','VICERRECTORADO'])
     assert.ok(form.includes(term));
   assert.ok(teacher.includes("'evidencePage').hidden = ev.length === 0"));
-  assert.match(teacher,/pagebreak/);
+  assert.match(teacher,/renderPdfPage/);
 });
 test('No se consulta o escribe Firebase con secretos administrativos en el navegador',()=>{
   assert.ok(!config.includes('service-account'));
@@ -294,8 +294,8 @@ test('El tema de clase es obligatorio y persiste junto al enlace en cada registr
   assert.match(teacher,/const badTopic = !CLASS_TYPES\.includes\(topic\.value\.trim\(\)\)/);
   assert.match(teacher,/addPair\(grid, 'Tema de la clase:', r\.topic/);
   assert.match(teacher,/addPair\(grid, 'Grabación:', r\.evidence, true\)/);
-  assert.match(teacher,/enableLinks: true/);
-  assert.match(teacher,/\.from\(\$\('pdfContent'\)\)\.save\(\)/);
+  assert.match(teacher,/pdf\.link\(x, y,/);
+  assert.match(teacher,/pdf\.save\(filename\)/);
 });
 test('Las instrucciones no se repiten por cada clase y hay acceso visible al administrador',()=>{
   assert.equal((form.match(/class="evidence-guidance"/g)||[]).length,1);
@@ -368,8 +368,8 @@ test('Cada fila del PDF contiene número, concepto elegido, mes, día, valor hor
   assert.match(teacher,/prepareFinancialPdf\(\)/);
 });
 test('El PDF no pagina cada fila por CSS, preserva tamaño carta y comprueba la tabla antes de exportar',()=>{
-  assert.match(teacher,/pagebreak: \{mode:\['legacy'\], before:\['\.financial-continuation','\.evidence-page'\]\}/);
-  assert.match(teacher,/prepareFinancialPdf\(\);\s*await Promise\.all/);
+  assert.doesNotMatch(teacher,/pagebreak: \{mode:/);
+  assert.match(teacher,/const pages = prepareFinancialPdf\(\);\s*await Promise\.all/);
   assert.match(read('styles.css'),/tbody tr \{ display: table-row !important; \}/);
   assert.match(read('styles.css'),/@page \{ size: letter; margin: 0; \}/);
   assert.match(teacher,/validateFinancialPdfRows/);
@@ -382,4 +382,23 @@ test('El arranque del formulario sucede después de las constantes que usa la ta
   assert.ok(numbered > 0 && spacer > numbered,'Faltan constantes del formato oficial');
   assert.ok(bootstrap > spacer,'La inicialización no debe ejecutarse antes de declarar las constantes de la tabla');
   assert.equal(teacher.slice(0,numbered).includes('bind();'),false,'No inicializar durante la zona temporal muerta');
+});
+
+test('El generador compone hojas individuales sin saltos automáticos que creen páginas blancas',()=>{
+  assert.match(teacher,/for \(const \[index, page\] of pages\.entries\(\)\)/);
+  assert.match(teacher,/await renderPdfPage\(pdf, page, index, pageWidth, pageHeight\)/);
+  assert.match(teacher,/if \(index > 0\) pdf\.addPage\('letter', 'portrait'\)/);
+  assert.match(teacher,/pdf\.getNumberOfPages\(\) !== pages\.length/);
+  assert.match(form,/html2canvas\/1\.4\.1\/html2canvas\.min\.js/);
+  assert.match(form,/jspdf\/2\.5\.1\/jspdf\.umd\.min\.js/);
+  assert.doesNotMatch(form,/html2pdf\.bundle/);
+  assert.doesNotMatch(teacher,/\.from\(\$\('pdfContent'\)\)\.save\(\)/);
+});
+test('El anexo se distribuye en grupos de cuatro y los hipervínculos siguen siendo clicables',()=>{
+  assert.match(teacher,/const EVIDENCE_PER_PAGE = 4/);
+  assert.match(teacher,/function paginateEvidencePages\(\)/);
+  assert.match(teacher,/Math\.ceil\(rows\.filter\(row => row\.evidence\)\.length \/ EVIDENCE_PER_PAGE\)/);
+  assert.match(teacher,/pdf\.link\(x, y,/);
+  assert.match(teacher,/link\.href=value/);
+  assert.match(read('styles.css'),/page-break-before: auto !important/);
 });

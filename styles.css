@@ -714,3 +714,24 @@ body.pdf-export .financial-sheet .activities-table tbody td { display: table-cel
   .financial-sheet .activities-table tbody tr { display: table-row !important; }
   .financial-sheet .activities-table tbody td { display: table-cell !important; }
 }
+
+/* Impresión: exactamente un salto después de cada hoja, nunca antes ni doble salto. */
+@media print {
+  .pdf-content, .export-document { width: 215.9mm; }
+  .pdf-page {
+    width: 215.9mm !important;
+    min-height: 278.8mm !important;
+    page-break-before: auto !important;
+    break-before: auto !important;
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .pdf-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+  .financial-continuation, .evidence-continuation {
+    page-break-before: auto !important;
+    break-before: auto !important;
+  }
+}

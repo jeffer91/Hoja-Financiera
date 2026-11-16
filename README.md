@@ -31,3 +31,5 @@ Los apellidos y los nombres se solicitan por separado, y se presentan juntos (en
 Las filas de CONCEPTO en el PDF institucional toman el tipo de clase elegido. Borradores anteriores con temas libres los conservan como nota en Observaciones y requieren seleccionar una categoría válida antes de generar el PDF. La paginación visible de cinco clases es independiente de la paginación de las hojas del PDF.
 
 La exportación del PDF vuelve a componer y comprueba la tabla justo antes de descargar o imprimir: numeración de clases, concepto seleccionado, mes y día derivados de la fecha, tarifa siempre vacía, horas y observaciones opcionales. Se verifican también filas de continuación y se evita la fragmentación por fila de html2pdf.
+
+La descarga ya no delega los saltos de página a html2pdf: cada hoja financiera y cada grupo de hasta cuatro grabaciones se dibuja como una página Carta independiente con html2canvas y jsPDF, preservando las anotaciones de enlaces. Esto evita las páginas intermedias en blanco provocadas por saltos automáticos duplicados. La función Imprimir utiliza una sola regla de salto por hoja.

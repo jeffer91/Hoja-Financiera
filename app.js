@@ -7,6 +7,7 @@ const CLASS_TYPES = Object.freeze([
   'Clase de explicación del proceso'
 ]);
 const CLASSES_PER_PAGE = 5;
+const EVIDENCE_PER_PAGE = 4;
 const DRAFT = 'hoja-financiera-draft-v1';
 const INITIAL_PERIOD_ID = '2026-02_2026-08';
 const INITIAL_PERIOD = Object.freeze({id: INITIAL_PERIOD_ID, mesInicio:2, anioInicio:2026, mesFin:8, anioFin:2026, etiqueta:'Febrero 2026 - Agosto 2026'});
@@ -267,6 +268,8 @@ function updateAll() {
 }
 
 function renderPreview(rows, totalHours) {
+  // Reconstruir el anexo completo cuando cambien las clases o se regenere el archivo.
+  $('pdfContent').querySelectorAll('.evidence-continuation').forEach(node => node.remove());
   const period = periodLabel();
   $('pvPeriod').textContent = period || '—';
   $('pvName').textContent = fullTeacherName() || '—';
@@ -408,11 +411,42 @@ function validateFinancialPdfRows(rows) {
   return true;
 }
 
+function paginateEvidencePages() {
+  const content = $('pdfContent');
+  const first = $('evidencePage');
+  content.querySelectorAll('.evidence-continuation').forEach(node => node.remove());
+  if (first.hidden) return;
+  const list = $('evidenceList');
+  const items = [...list.children];
+  list.replaceChildren(...items.slice(0, EVIDENCE_PER_PAGE));
+  for (let offset = EVIDENCE_PER_PAGE; offset < items.length; offset += EVIDENCE_PER_PAGE) {
+    const sheet = first.cloneNode(true);
+    sheet.removeAttribute('id');
+    sheet.classList.add('evidence-continuation');
+    sheet.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+    sheet.querySelector('.evidence-list').replaceChildren(...items.slice(offset, offset + EVIDENCE_PER_PAGE));
+    content.appendChild(sheet);
+  }
+}
+
+function preparedPdfPages(rows) {
+  const pages = [...$('pdfContent').querySelectorAll('.pdf-page')].filter(page => !page.hidden);
+  const financialPages = paginateFinancialRows(rows).length;
+  const evidencePages = rows.filter(row => row.evidence).length
+    ? Math.ceil(rows.filter(row => row.evidence).length / EVIDENCE_PER_PAGE) : 0;
+  if (pages.length !== financialPages + evidencePages) {
+    throw Error('El PDF contiene un número inesperado de hojas.');
+  }
+  return pages;
+}
+
 function prepareFinancialPdf() {
   const rows = activities();
   const hours = rows.reduce((total, row) => total + row.hours, 0);
   renderPreview(rows, hours);
   validateFinancialPdfRows(rows);
+  paginateEvidencePages();
+  return preparedPdfPages(rows);
 }
 
 function addPair(grid, label, value, url) {
@@ -421,7 +455,10 @@ function addPair(grid, label, value, url) {
   const b = document.createElement('div');
   if (url) b.className = 'evidence-url';
   if(url && validEvidenceUrl(value)) {
-    const link=document.createElement('a');link.href=value;link.textContent=value;
+    const link=document.createElement('a');link.href=value;
+    // El destino completo se conserva en el PDF. Una etiqueta corta evita desbordar el papel Carta.
+    link.textContent='Abrir grabación (' + new URL(value).hostname + ')';
+    link.title=value;
     link.target='_blank';link.rel='noopener noreferrer';link.style.overflowWrap='anywhere';
     b.appendChild(link);
   } else b.textContent=value;
@@ -629,12 +666,45 @@ function fail(message, el) {
 }
 
 
+// Cada sección institucional se rasteriza de forma independiente y ocupa exactamente
+// una página del PDF. No se delegan saltos al motor automático de html2pdf.
+async function renderPdfPage(pdf, page, index, pageWidth, pageHeight) {
+  const canvas = await window.html2canvas(page, {
+    scale: 2, useCORS: true, backgroundColor: '#ffffff',
+    scrollX: 0, scrollY: 0, logging: false
+  });
+  if (!canvas.width || !canvas.height) throw Error('No se pudo dibujar una hoja del PDF.');
+  const pageRect = page.getBoundingClientRect();
+  const naturalHeight = pageWidth * canvas.height / canvas.width;
+  const drawHeight = Math.min(pageHeight, naturalHeight);
+  const drawWidth = drawHeight === naturalHeight ? pageWidth : pageHeight * canvas.width / canvas.height;
+  const left = (pageWidth - drawWidth) / 2;
+  if (index > 0) pdf.addPage('letter', 'portrait');
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', left, 0, drawWidth, drawHeight, undefined, 'FAST');
+
+  // html2canvas genera una imagen; las anotaciones restauran enlaces clicables.
+  const scaleX = drawWidth / pageRect.width;
+  const scaleY = drawHeight / pageRect.height;
+  for (const anchor of page.querySelectorAll('a[href]')) {
+    if (!validEvidenceUrl(anchor.href)) continue;
+    const rect = anchor.getBoundingClientRect();
+    const x = left + (rect.left - pageRect.left) * scaleX;
+    const y = (rect.top - pageRect.top) * scaleY;
+    if (x >= 0 && y >= 0 && x < pageWidth && y < pageHeight) {
+      pdf.link(x, y,
+        Math.min(rect.width * scaleX, pageWidth - x),
+        Math.min(rect.height * scaleY, pageHeight - y),
+        {url: anchor.href});
+    }
+  }
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
 async function downloadPdf() {
   if (exporting) return;
-  if (!window.html2pdf) {
-    toast('No se cargó el generador PDF. Usa Imprimir → Guardar como PDF.');
-    try { prepareFinancialPdf(); window.print(); }
-    catch (error) { console.error(error); toast('No se pudo preparar la tabla del PDF: ' + error.message); }
+  if (!window.html2canvas || !window.jspdf?.jsPDF) {
+    toast('No se cargó el generador PDF. Actualiza la página o usa Imprimir.');
     return;
   }
   exporting = true;
@@ -643,22 +713,21 @@ async function downloadPdf() {
   saveDraft(false);
   document.body.classList.add('pdf-export');
   const filename = 'HOJA_FINANCIERA_' + fileSafe(fullTeacherName() || 'DOCENTE') + '_' + fileSafe(periodLabel()) + '.pdf';
-  const options = {
-    margin: 0,
-    filename,
-    image: {type:'jpeg', quality:0.98},
-    html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff'},
-    jsPDF: {unit:'mm', format:'letter', orientation:'portrait'},
-    enableLinks: true,
-    // Las páginas financieras ya se componen completas: evitar que CSS las parta por filas.
-    pagebreak: {mode:['legacy'], before:['.financial-continuation','.evidence-page']}
-  };
   try {
     toast('Generando PDF…');
-    prepareFinancialPdf();
+    const pages = prepareFinancialPdf();
     await Promise.all([...$('pdfContent').querySelectorAll('img')].map(img => img.decode().catch(() => {})));
-    await window.html2pdf().set(options).from($('pdfContent')).save();
-    toast('PDF generado. El proceso ha finalizado.');
+    const pdf = new window.jspdf.jsPDF({unit:'mm',format:'letter',orientation:'portrait',compress:true});
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    for (const [index, page] of pages.entries()) {
+      await renderPdfPage(pdf, page, index, pageWidth, pageHeight);
+    }
+    if (pdf.getNumberOfPages() !== pages.length) {
+      throw Error('No coincide el número de páginas del documento.');
+    }
+    pdf.save(filename);
+    toast('PDF generado con ' + pages.length + (pages.length === 1 ? ' hoja.' : ' hojas.'));
   } catch (e) {
     console.error(e);
     toast('No se pudo generar el PDF: ' + e.message);
