@@ -68,14 +68,14 @@ export function verifySheet(data,period) {
     const date=new Date(a.date+'T00:00:00Z');
     if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==a.date||date.getTime()<start||date.getTime()>end)
       throw Error('Una fecha está fuera del período');
-    const hours=Number(a.hours), notes=sanitizeString(a.notes,1200), evidence=sanitizeString(a.evidence,2048);
-    if(!Number.isFinite(hours)||hours<0.01||hours>24||Math.abs(hours*100-Math.round(hours*100))>1e-8||!notes)throw Error('Revisa horas y observaciones');
+    const hours=Number(a.hours), notes=sanitizeString(a.notes,1200), topic=sanitizeString(a.topic,300), evidence=sanitizeString(a.evidence,2048);
+    if(!Number.isFinite(hours)||hours<0.01||hours>24||Math.abs(hours*100-Math.round(hours*100))>1e-8||(!notes&&!topic))throw Error('Revisa horas y observaciones');
     let evidenceUrl;
     try { evidenceUrl = new URL(evidence); }
     catch { throw Error('Revisa el enlace de grabación o evidencia: es obligatorio y debe ser https://'); }
     if(evidenceUrl.protocol !== 'https:' || !evidenceUrl.hostname)
       throw Error('Revisa el enlace de grabación o evidencia: es obligatorio y debe ser https://');
-    return {date:a.date,hours,notes,evidence,valueHour:null};
+    return {date:a.date,hours,topic:topic||notes,notes,evidence,valueHour:null};
   });
   return {version:3,origen:'Hoja-Financiera',cedula,docente,tituloSuperior:titulo,carrera,
     origenDocente:data.origenDocente==='manual'?'manual':'firebase',

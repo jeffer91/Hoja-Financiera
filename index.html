@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d2f56" />
   <meta name="description" content="Generador institucional de hojas financieras para clases de refuerzo por carrera." />
   <title>Hoja Financiera | ITSQMET</title>
-  <link rel="stylesheet" href="styles.css?v=20261110-logotipo-original-v8" />
+  <link rel="stylesheet" href="styles.css?v=20261116-temas-grabaciones-v1" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -18,6 +18,7 @@
         <span>Clases de refuerzo por carrera</span>
       </div>
     </div>
+    <a class="topbar-link" href="administrador/" aria-label="Abrir panel de administración">Administración</a>
   </header>
 
   <main class="app-layout">
@@ -121,11 +122,12 @@
           <section class="form-section first-section">
             <div class="section-title activities-title">
               <div class="title-with-step">
-                <span class="step">3</span>
-                <div><h2>Clases realizadas</h2><p>Agrega una fila por cada fecha trabajada.</p></div>
+                <span class="step">2</span>
+                <div><h2>Clases realizadas</h2><p>Registra el tema, las horas y la grabación de cada clase.</p></div>
               </div>
               <button type="button" class="btn btn-secondary" id="addActivityBtn">+ Agregar clase</button>
             </div>
+            <p class="evidence-guidance">Las horas declaradas deben coincidir con la grabación. Comparte los enlaces HTTPS con permisos de visualización; si la evidencia no es accesible o no coincide con las horas, estas no serán validadas para el pago hasta corregir la observación.</p>
             <div id="activities" class="activities"></div>
           </section>
 
@@ -138,7 +140,7 @@
         <section class="wizard-page" data-wizard-page="3" hidden>
           <section class="form-section first-section">
             <div class="section-title">
-              <span class="step">4</span>
+              <span class="step">3</span>
               <div><h2>Resumen</h2><p>Confirma tus datos y descarga la hoja financiera.</p></div>
             </div>
 
@@ -153,7 +155,7 @@
               <div><span>Total horas</span><strong id="hoursTotal">0</strong></div>
             </section>
 
-            <div class="submission-note"><strong>Listo para generar el PDF</strong><span>El valor por hora permanece vacío para Talento Humano. Descarga tu hoja para finalizar; no necesitas subirla a esta aplicación.</span></div>
+            <div class="submission-note"><strong>Un solo PDF</strong><span>Incluye la hoja financiera y el respaldo de temas y grabaciones. El valor por hora queda vacío para Talento Humano; no necesitas subir el archivo aquí.</span></div>
           </section>
 
           <div class="wizard-nav final-nav">
@@ -216,7 +218,7 @@
           <section class="pdf-page evidence-page" id="evidencePage" hidden>
             <div class="evidence-header">
               <img src="assets/logo-formato-institucional.jpg" alt="Logotipo institucional original" />
-              <div><strong>RESPALDO DE CLASES DE REFUERZO</strong><span>Hoja financiera — evidencias</span></div>
+              <div><strong>TEMAS Y GRABACIONES DE CLASES</strong><span>Anexo de la hoja financiera</span></div>
             </div>
             <table class="evidence-table">
               <tbody>
@@ -243,21 +245,22 @@
         </label>
         <label>Horas trabajadas
           <input class="activity-hours" type="number" inputmode="decimal" min="0.01" max="24" step="0.01" value="2.00" required />
-          <span class="hours-match-note">Las horas declaradas deben coincidir con la duración de la grabación o evidencia.</span>
         </label>
-        <label class="full-width">Observaciones
-          <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Ej. Revisión de introducción, metodología y correcciones del artículo académico." required></textarea>
+        <label class="full-width">Tema de la clase
+          <input class="activity-topic" maxlength="300" placeholder="Ej. Revisión de metodología del artículo académico" required />
         </label>
-        <label class="full-width">Enlace de grabación o evidencia (obligatorio)
+        <label class="full-width">Observaciones <span class="optional">opcional</span>
+          <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Alguna observación adicional (si corresponde)"></textarea>
+        </label>
+        <label class="full-width">Enlace de la grabación
           <input class="activity-evidence" maxlength="2048" type="url" inputmode="url" placeholder="https://..." required />
-          <span class="evidence-warning">Comparte el enlace con permisos de visualización para el personal responsable de la revisión. Si no es posible acceder a la evidencia o no coinciden las horas declaradas, estas no serán validadas para el pago hasta que se corrija la observación.</span>
         </label>
       </div>
     </article>
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261109-formato-final-v7"></script>
+  <script type="module" src="app.js?v=20261116-temas-grabaciones-v1"></script>
 </body>
 </html>
 

@@ -286,3 +286,31 @@ test('El logotipo institucional original existe y se usa en hoja y evidencias',(
   assert.ok(css.includes('object-fit: fill;'));
   assert.ok(css.includes('border-top: 0;'));
 });
+
+test('El tema de clase es obligatorio y persiste junto al enlace en cada registro',()=>{
+  assert.match(form,/class="activity-topic"[^>]*required/);
+  assert.match(teacher,/card\.querySelector\('\.activity-topic'\)\.value/);
+  assert.match(teacher,/topic: card\.querySelector\('\.activity-topic'\)\.value\.trim\(\)/);
+  assert.match(teacher,/const badTopic = !topic\.value\.trim\(\)/);
+  assert.match(teacher,/addPair\(grid, 'Tema de la clase:', r\.topic/);
+  assert.match(teacher,/addPair\(grid, 'Grabación:', r\.evidence, true\)/);
+  assert.match(teacher,/enableLinks: true/);
+  assert.match(teacher,/\.from\(\$\('pdfContent'\)\)\.save\(\)/);
+});
+test('Las instrucciones no se repiten por cada clase y hay acceso visible al administrador',()=>{
+  assert.equal((form.match(/class="evidence-guidance"/g)||[]).length,1);
+  assert.doesNotMatch(form,/class="hours-match-note"/);
+  assert.doesNotMatch(form,/class="evidence-warning"/);
+  assert.match(form,/href="administrador\/"/);
+  assert.match(panel,/enlace privado de administración/);
+});
+test('El servidor conserva tema de clase y acepta registros antiguos',()=>{
+  const clean=pure(api,'sanitizeString'),periodCheck=pure(api,'validPeriod');
+  const verify=pure(api,'verifySheet',['sanitizeString','validPeriod'],[clean,periodCheck]);
+  const period={id:'2026-02_2026-08',mesInicio:2,anioInicio:2026,mesFin:8,anioFin:2026};
+  const base={cedula:'1718435009',docente:'Docente de Prueba Completo',tituloSuperior:'Magíster',
+    actividades:[{date:'2026-02-12',hours:2,notes:'',topic:'Planteamiento del problema',evidence:'https://example.org/video'}]};
+  assert.equal(verify(base,period).actividades[0].topic,'Planteamiento del problema');
+  assert.equal(verify({...base,actividades:[{...base.actividades[0],topic:'',notes:'Tema histórico'}]},period).actividades[0].topic,'Tema histórico');
+  assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],topic:'',notes:''}]},period));
+});

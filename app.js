@@ -125,6 +125,8 @@ function addActivity(data) {
       hoursInput.value = value.toFixed(2);
     }
   });
+  // Los borradores antiguos solo tenían observaciones: reutilizarlas como tema inicial sin perderlas.
+  card.querySelector('.activity-topic').value = String(data.topic || data.notes || '').slice(0,300);
   card.querySelector('.activity-notes').value = data.notes || '';
   card.querySelector('.activity-evidence').value = data.evidence || '';
   card.querySelector('.remove-activity').addEventListener('click', () => {
@@ -148,6 +150,7 @@ function activities() {
     date: card.querySelector('.activity-date').value,
     valueHour: null,
     hours: num(card.querySelector('.activity-hours').value),
+    topic: card.querySelector('.activity-topic').value.trim(),
     notes: card.querySelector('.activity-notes').value.trim(),
     evidence: card.querySelector('.activity-evidence').value.trim()
   }));
@@ -188,12 +191,13 @@ function renderPreview(rows, totalHours) {
     box.className = 'evidence-item';
     const head = document.createElement('div');
     head.className = 'ev-title';
-    head.textContent = 'Grabación / evidencia ' + (i + 1);
+    head.textContent = 'Clase ' + (i + 1);
     const grid = document.createElement('div');
     grid.className = 'evidence-grid';
     addPair(grid, 'Fecha:', longDate(r.date));
-    addPair(grid, 'Tiempo de clase:', nfmt(r.hours) + ' HORAS');
-    addPair(grid, 'Enlace:', r.evidence, true);
+    addPair(grid, 'Duración:', nfmt(r.hours) + ' HORAS');
+    addPair(grid, 'Tema de la clase:', r.topic || r.notes || '—');
+    addPair(grid, 'Grabación:', r.evidence, true);
     box.append(head, grid);
     evList.appendChild(box);
   });
@@ -419,22 +423,22 @@ function validEvidenceUrl(value) {
 function validateActivityCard(card) {
   const date = card.querySelector('.activity-date');
   const hours = card.querySelector('.activity-hours');
-  const notes = card.querySelector('.activity-notes');
+  const topic = card.querySelector('.activity-topic');
   const evidence = card.querySelector('.activity-evidence');
 
   const badDate = !date.value || !date.checkValidity() || !validClassDate(date.value);
   const badHours = !hours.value.trim() || !hours.checkValidity() ||
     !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0 || Number(hours.value) > 24;
-  const badNotes = !notes.value.trim();
+  const badTopic = !topic.value.trim();
   // Cada clase debe incluir una dirección HTTPS de evidencia válida.
   const badEvidence = !evidence.value.trim() || !evidence.checkValidity() || !validEvidenceUrl(evidence.value.trim());
 
   markFieldInvalid(date, badDate);
   markFieldInvalid(hours, badHours);
-  markFieldInvalid(notes, badNotes);
+  markFieldInvalid(topic, badTopic);
   markFieldInvalid(evidence, badEvidence);
 
-  const invalid = badDate || badHours || badNotes || badEvidence;
+  const invalid = badDate || badHours || badTopic || badEvidence;
   card.classList.toggle('has-errors', invalid);
   return !invalid;
 }
@@ -466,7 +470,7 @@ function validateWizardPage(page) {
   if (page === 2) {
     validatedPages.add(2);
     if (!validateActivityCards()) {
-      return reportValidationError(2, 'Completa los campos rojos: cada clase requiere un enlace HTTPS de grabación o evidencia.');
+      return reportValidationError(2, 'Completa los campos rojos: cada clase necesita fecha, horas, tema y enlace HTTPS de grabación.');
     }
     return true;
   }
@@ -506,6 +510,7 @@ async function downloadPdf() {
     image: {type:'jpeg', quality:0.98},
     html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff'},
     jsPDF: {unit:'mm', format:'letter', orientation:'portrait'},
+    enableLinks: true,
     pagebreak: {mode:['css','legacy']}
   };
   try {

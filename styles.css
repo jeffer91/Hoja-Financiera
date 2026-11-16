@@ -142,14 +142,16 @@ textarea { resize: vertical; min-height: 54px; }
 .evidence-header span { font-size: 8pt; color: #555; }
 .evidence-table th, .evidence-table td { border: 1px solid #222; padding: 2mm; font-size: 8pt; }
 .evidence-table th { width: 28%; text-align: left; }
-.evidence-list { display: grid; gap: 5mm; margin-top: 7mm; }
-.evidence-item { border: 1px solid #222; }
+.evidence-list { display: block; margin-top: 5mm; }
+.evidence-item { border: 1px solid #222; margin-bottom: 4mm; break-inside: avoid; page-break-inside: avoid; }
 .evidence-item .ev-title { background: #eef3f8; padding: 2mm; font-size: 8pt; font-weight: 700; border-bottom: 1px solid #222; }
 .evidence-grid { display: grid; grid-template-columns: 35mm 1fr; font-size: 8pt; }
 .evidence-grid > div { border-bottom: 1px solid #222; padding: 2mm; min-height: 7mm; }
 .evidence-grid > div:nth-last-child(-n+2) { border-bottom: 0; }
 .evidence-grid .label { font-weight: 700; border-right: 1px solid #222; }
 .evidence-url { word-break: break-all; color: #0b4a86; }
+.evidence-url a { color: #0b4a86; text-decoration: underline; }
+.evidence-guidance { margin: 0 0 10px; padding: 9px 12px; border-radius: 8px; border: 1px solid #ead9b0; background: #fffaf0; color: #6c4714; font-size: 11px; line-height: 1.45; }
 
 .toast { position: fixed; right: 20px; bottom: 20px; z-index: 50; opacity: 0; transform: translateY(12px); pointer-events: none; background: #172033; color: #fff; padding: 11px 14px; border-radius: 9px; box-shadow: 0 12px 30px rgba(0,0,0,.22); transition: .2s; font-size: 12px; font-weight: 700; }
 .toast.show { opacity: 1; transform: translateY(0); }
@@ -432,7 +434,7 @@ body.pdf-export .pdf-page { box-shadow: none !important; margin: 0 !important; }
 .period-warning[hidden]{display:none !important}
 
 
-/* Documento institucional: hojas A4 y enlaces extensos sin recortes. */
+/* Documento institucional: páginas Carta y enlaces extensos sin recortes. */
 body.pdf-export .activities-table tr,
 body.pdf-export .evidence-item,
 body.pdf-export .signatures {
@@ -491,7 +493,7 @@ body.pdf-export .pdf-page:last-child {
 
 /* Keep hidden evidence absent in both export and print. */
 .pdf-page[hidden] { display: none !important; }
-@page { size: A4; margin: 0; }
+/* El tamaño de impresión se establece en Carta al final del archivo. */
 @media print {
   .toast { display: none !important; }
   .pdf-page:last-child { break-after: auto; }

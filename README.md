@@ -5,10 +5,10 @@
 ## Flujo actual
 
 1. Seleccionar período e ingresar manualmente la cédula, los apellidos y los nombres en campos separados, el título superior y, opcionalmente, seleccionar la carrera (con opción de escribir otra).
-2. Registrar de 1 a 80 clases, con fecha dentro del período, horas entre 0,01 y 24,00 en intervalos de 0,01 (hasta dos decimales) y observaciones. Cada clase exige un enlace HTTPS de grabación o evidencia, compartido con permisos de visualización para revisión. Las horas declaradas deben coincidir con la evidencia.
+2. Registrar de 1 a 80 clases, con fecha dentro del período, horas entre 0,01 y 24,00 en intervalos de 0,01 (hasta dos decimales), tema obligatorio y observaciones opcionales. Cada clase exige un enlace HTTPS de grabación, compartido con permisos de visualización para revisión. Las horas declaradas deben coincidir con la evidencia.
 3. Revisar los totales y descargar el PDF oficial en tamaño Carta o imprimirlo. El proceso termina aquí: no se solicita subir un documento firmado.
 
-El documento principal reproduce el formato oficial recibido: logotipo y encabezado institucional, datos del docente, MATERIAS, tabla con 23 filas numeradas y siete filas adicionales en blanco, total y tres firmas en la última página. Si existen más registros, el generador crea hojas de continuación sin perder clases. La tarifa queda vacía para Talento Humano y se mantienen tres espacios de firma. La página de evidencias se incluye en el PDF generado tras validar todas las clases. Los enlaces conservan su URL; los permisos de acceso deben configurarse en el servicio donde están alojadas. El formulario verifica la presencia y el formato HTTPS, pero no puede comprobar automáticamente los permisos reales ni la duración de las grabaciones. Sin evidencia accesible y congruente, las horas no se validarán para el pago hasta corregir la observación.
+El documento principal reproduce el formato oficial recibido: logotipo y encabezado institucional, datos del docente, MATERIAS, tabla con 23 filas numeradas y siete filas adicionales en blanco, total y tres firmas en la última página. Si existen más registros, el generador crea hojas de continuación sin perder clases. La tarifa queda vacía para Talento Humano y se mantienen tres espacios de firma. El anexo de evidencias comienza después de las hojas financieras, en el mismo PDF, e incluye fecha, duración, tema y enlace clicable para cada clase. Los enlaces conservan su URL; los permisos de acceso deben configurarse en el servicio donde están alojadas. El formulario verifica la presencia y el formato HTTPS, pero no puede comprobar automáticamente los permisos reales ni la duración de las grabaciones. Sin evidencia accesible y congruente, las horas no se validarán para el pago hasta corregir la observación.
 
 Los borradores se guardan automáticamente en este navegador. No se sincronizan entre dispositivos. La descarga no envía datos ni archivos al servidor ni crea estadísticas de recepción.
 
@@ -16,7 +16,7 @@ El formulario no consulta docentes por cédula ni autocompleta sus datos. Todos 
 
 ## Historial administrativo
 
-[Administrador](https://jeffer91.github.io/Hoja-Financiera/administrador/)
+[Administrador](https://jeffer91.github.io/Hoja-Financiera/administrador/) (también accesible desde el encabezado del formulario). El enlace público muestra información general; las operaciones privadas requieren el enlace administrativo con su clave configurada de manera segura.
 
 Se conserva para consultar documentos recibidos anteriormente y gestionar períodos. Las estadísticas corresponden a esas entregas históricas, no a nuevas descargas. El formulario actual no permite enviar ni reenviar documentos. Los endpoints y archivos existentes se conservan para no eliminar información histórica. La configuración privada se documenta en FIREBASE-ADMIN.md.
 
