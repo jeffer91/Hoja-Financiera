@@ -663,3 +663,44 @@ body.pdf-export .financial-continuation { page-break-before: always; break-befor
   max-width: 60%;
   object-fit: fill;
 }
+
+/* Editor de clases: navegación compacta y tarjetas plegables (solo pantalla). */
+@media screen {
+  .activity-overview {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin:0 0 10px; padding:9px 12px; border:1px solid #d7e2f0;
+    border-radius:10px; background:#f0f5fb; color:#183958;
+    font-size:12px; font-weight:750;
+  }
+  .activity-overview strong { color:#0d2f56; font-size:13px; }
+  .activities { gap:9px; }
+  .activity-card { border-radius:10px; background:#fff; }
+  .activity-card[hidden], .activity-fields[hidden], .activity-pagination[hidden] { display:none !important; }
+  .activity-card-head { padding:9px 11px; gap:12px; background:#f7f9fc; }
+  .activity-heading { display:flex; align-items:flex-start; flex-direction:column; gap:3px; min-width:0; flex:1; }
+  .activity-heading strong { font-size:13px; }
+  .activity-summary { color:#66758a; font-size:11px; font-weight:500; line-height:1.35; overflow-wrap:anywhere; }
+  .activity-head-actions { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+  .activity-toggle { border:1px solid #c6d7e9; background:#fff; border-radius:7px; color:#143e68; padding:6px 11px; font-size:11px; font-weight:750; cursor:pointer; }
+  .activity-toggle:hover { background:#e9f2fc; }
+  .activity-fields { gap:10px 12px; padding:12px; }
+  .field-label { display:inline-flex; align-items:baseline; gap:6px; }
+  .field-label .optional { font-size:11px; }
+  .activity-pagination {
+    display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 1px 3px; margin-top:3px;
+  }
+  .activity-range { font-size:11px; color:#687386; font-weight:700; }
+  .activity-page-actions { display:flex; align-items:center; gap:9px; }
+  .activity-page-status { font-size:11px; font-weight:750; color:#143e68; white-space:nowrap; }
+  .activity-pagination .btn { padding:7px 11px; }
+  .evidence-guidance { padding:8px 11px; background:#f9fbff; border:1px solid #d6e3f1; color:#58687b; font-size:11px; }
+}
+@media screen and (max-width:700px) {
+  .activity-overview { padding:8px 9px; font-size:11px; }
+  .activity-pagination { flex-direction:column; align-items:stretch; }
+  .activity-page-actions { justify-content:space-between; }
+  .activity-head-actions { gap:5px; }
+  .activity-toggle { padding:6px 9px; }
+  .activity-heading .activity-summary { font-size:10px; }
+}

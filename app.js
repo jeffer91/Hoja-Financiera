@@ -1,6 +1,12 @@
 import {apiRequest} from './api-config.js';
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const CONCEPT = 'Clases de refuerzo por carrera';
+const CLASS_TYPES = Object.freeze([
+  'Clase de refuerzo por carrera',
+  'Clase de metodología',
+  'Clase de explicación del proceso'
+]);
+const CLASSES_PER_PAGE = 5;
 const DRAFT = 'hoja-financiera-draft-v1';
 const INITIAL_PERIOD_ID = '2026-02_2026-08';
 const INITIAL_PERIOD = Object.freeze({id: INITIAL_PERIOD_ID, mesInicio:2, anioInicio:2026, mesFin:8, anioFin:2026, etiqueta:'Febrero 2026 - Agosto 2026'});
@@ -10,6 +16,8 @@ const list = $('activities');
 const template = $('activityTemplate');
 const WIZARD_PAGE_NAMES = ['Datos del docente', 'Clases realizadas', 'Revisar y generar'];
 let currentWizardPage = 1;
+let currentClassPage = 1;
+let expandedActivity = null;
 const validatedPages = new Set();
 let availablePeriods = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
 let desiredPeriodId = INITIAL_PERIOD_ID;
@@ -89,6 +97,8 @@ function bind() {
     if (validateForm()) await downloadPdf();
   });
   $('addActivityBtn').addEventListener('click', () => addActivity());
+  $('prevClassesPage').addEventListener('click', () => changeActivityPage(currentClassPage - 1));
+  $('nextClassesPage').addEventListener('click', () => changeActivityPage(currentClassPage + 1));
   $('cedula').addEventListener('input', sanitizeCedula);
   $('teacherCareer').addEventListener('change', toggleCareerOther);
   $('periodSelect').addEventListener('change', () => {
@@ -110,7 +120,22 @@ function bind() {
   });
 }
 
-function addActivity(data) {
+function normalizeClassTopic(value) {
+  const topic = String(value || '').trim();
+  if (CLASS_TYPES.includes(topic)) return topic;
+  if (/^clases? de refuerzo por carrera$/i.test(topic)) return CLASS_TYPES[0];
+  return '';
+}
+
+function classPageForIndex(index) {
+  return Math.floor(index / CLASSES_PER_PAGE) + 1;
+}
+
+function classPageCount(count) {
+  return Math.max(1, Math.ceil(count / CLASSES_PER_PAGE));
+}
+
+function addActivity(data, reveal = true) {
   if (list.children.length >= 80) return toast('Se permiten hasta 80 clases por hoja.');
   data = data || {};
   const frag = template.content.cloneNode(true);
@@ -125,24 +150,95 @@ function addActivity(data) {
       hoursInput.value = value.toFixed(2);
     }
   });
-  // Los borradores antiguos solo tenían observaciones: reutilizarlas como tema inicial sin perderlas.
-  card.querySelector('.activity-topic').value = String(data.topic || data.notes || '').slice(0,300);
-  card.querySelector('.activity-notes').value = data.notes || '';
+  const oldTopic = String(data.topic || '').trim();
+  const topic = normalizeClassTopic(oldTopic);
+  card.querySelector('.activity-topic').value = topic;
+  const notes = String(data.notes || '');
+  // Conservar temas libres de borradores anteriores en Observaciones sin seleccionarlos arbitrariamente.
+  const previousTopic = oldTopic && !topic && oldTopic !== notes ? 'Tema anterior: ' + oldTopic : '';
+  card.querySelector('.activity-notes').value = [previousTopic, notes].filter(Boolean).join('\n');
   card.querySelector('.activity-evidence').value = data.evidence || '';
+  card.querySelector('.activity-toggle').addEventListener('click', () => {
+    expandedActivity = expandedActivity === card ? null : card;
+    renderActivityPagination();
+  });
   card.querySelector('.remove-activity').addEventListener('click', () => {
     if (list.children.length <= 1) return toast('Debe existir al menos una clase.');
-    card.remove(); renumber(); updateAll(); scheduleDraft();
+    const previousIndex = [...list.children].indexOf(card);
+    card.remove();
+    if (expandedActivity === card) {
+      expandedActivity = list.children[Math.max(0, Math.min(previousIndex, list.children.length - 1))] || null;
+    }
+    currentClassPage = Math.min(currentClassPage, classPageCount(list.children.length));
+    renumber();
+    updateAll();
+    scheduleDraft();
   });
   list.appendChild(card);
   renumber();
-  updateAll();
-  scheduleDraft();
+  if (reveal) {
+    currentClassPage = classPageForIndex(list.children.length - 1);
+    expandedActivity = card;
+    updateAll();
+    scheduleDraft();
+    if (list.children.length > 1) card.scrollIntoView({behavior:'smooth',block:'center'});
+  }
 }
 
 function renumber() {
   [...list.children].forEach((card, i) => {
-    card.querySelector('.activity-number').textContent = String(i + 1);
+    const num = String(i + 1);
+    card.querySelector('.activity-number').textContent = num;
+    card.querySelector('.remove-activity').setAttribute('aria-label', 'Eliminar clase ' + num);
   });
+}
+
+function renderActivityPagination() {
+  const cards = [...list.children];
+  const pageCount = classPageCount(cards.length);
+  currentClassPage = Math.max(1, Math.min(currentClassPage, pageCount));
+  const start = (currentClassPage - 1) * CLASSES_PER_PAGE;
+  const end = Math.min(cards.length, start + CLASSES_PER_PAGE);
+  cards.forEach((card, index) => {
+    const isVisible = index >= start && index < end;
+    card.hidden = !isVisible;
+    const expanded = isVisible && expandedActivity === card;
+    card.querySelector('.activity-fields').hidden = !expanded;
+    const toggle = card.querySelector('.activity-toggle');
+    toggle.textContent = expanded ? 'Ocultar' : 'Editar';
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.setAttribute('aria-label', (expanded ? 'Ocultar' : 'Editar') + ' clase ' + (index + 1));
+    const topic = card.querySelector('.activity-topic').value || 'Tipo pendiente';
+    const date = card.querySelector('.activity-date').value;
+    const hours = card.querySelector('.activity-hours').value;
+    const summary = [topic, date ? longDate(date) : '', hours ? nfmt(Number(hours)) + ' h' : ''].filter(Boolean).join(' · ');
+    card.querySelector('.activity-summary').textContent = summary + (card.classList.contains('has-errors') ? ' · Revisar datos' : '');
+  });
+  $('activityRange').textContent = 'Clases ' + (cards.length ? start + 1 : 0) + '–' + end + ' de ' + cards.length;
+  $('activityPageStatus').textContent = 'Página ' + currentClassPage + ' de ' + pageCount;
+  $('prevClassesPage').disabled = currentClassPage <= 1;
+  $('nextClassesPage').disabled = currentClassPage >= pageCount;
+  $('activityPagination').hidden = pageCount === 1;
+  $('activitySummaryCount').textContent = cards.length + (cards.length === 1 ? ' clase registrada' : ' clases registradas');
+  $('activitySummaryHours').textContent = nfmt(activities().reduce((sum, activity) => sum + activity.hours, 0)) + ' horas';
+  $('addActivityBtn').disabled = cards.length >= 80;
+}
+
+function changeActivityPage(page) {
+  if (page < 1 || page > classPageCount(list.children.length)) return;
+  currentClassPage = page;
+  expandedActivity = list.children[(page - 1) * CLASSES_PER_PAGE] || null;
+  renderActivityPagination();
+  $('activities').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function showFirstInvalidActivity() {
+  const cards = [...list.children];
+  const index = cards.findIndex(card => card.classList.contains('has-errors'));
+  if (index < 0) return;
+  currentClassPage = classPageForIndex(index);
+  expandedActivity = cards[index];
+  renderActivityPagination();
 }
 
 function activities() {
@@ -166,6 +262,7 @@ function updateAll() {
   // Las marcas rojas se actualizan en tiempo real tras intentar avanzar.
   if (validatedPages.has(1)) validateTeacherFields();
   if (validatedPages.has(2)) validateActivityCards();
+  renderActivityPagination();
 }
 
 function renderPreview(rows, totalHours) {
@@ -256,7 +353,7 @@ function renderOfficialFinancialPages(rows) {
       if (!numbered) tr.className = 'official-spacer-row';
       const cells = [
         numbered && (row || isLast) ? String(rowOffset + index + 1) : '',
-        row ? CONCEPT : '',
+        row ? (normalizeClassTopic(row.topic) || CONCEPT) : '',
         date ? String(date.getMonth() + 1) : '',
         date ? String(date.getDate()) : '',
         row && row.valueHour != null ? nfmt(row.valueHour) : '',
@@ -351,6 +448,7 @@ function goToPage(target, validateForward = true) {
   if (name) name.textContent = WIZARD_PAGE_NAMES[target - 1];
 
   updateWizardSummary();
+  if (target === 2) renderActivityPagination();
   const panel = document.querySelector('.form-panel');
   if (panel) panel.scrollIntoView({behavior:'smooth', block:'start'});
 }
@@ -429,7 +527,7 @@ function validateActivityCard(card) {
   const badDate = !date.value || !date.checkValidity() || !validClassDate(date.value);
   const badHours = !hours.value.trim() || !hours.checkValidity() ||
     !Number.isFinite(Number(hours.value)) || Number(hours.value) <= 0 || Number(hours.value) > 24;
-  const badTopic = !topic.value.trim();
+  const badTopic = !CLASS_TYPES.includes(topic.value.trim());
   // Cada clase debe incluir una dirección HTTPS de evidencia válida.
   const badEvidence = !evidence.value.trim() || !evidence.checkValidity() || !validEvidenceUrl(evidence.value.trim());
 
@@ -470,7 +568,8 @@ function validateWizardPage(page) {
   if (page === 2) {
     validatedPages.add(2);
     if (!validateActivityCards()) {
-      return reportValidationError(2, 'Completa los campos rojos: cada clase necesita fecha, horas, tema y enlace HTTPS de grabación.');
+      showFirstInvalidActivity();
+      return reportValidationError(2, 'Revisa la clase indicada: fecha, horas, tipo y enlace HTTPS de grabación son obligatorios.');
     }
     return true;
   }
@@ -574,7 +673,9 @@ function restoreDraft() {
     activePeriod = availablePeriods[desiredPeriodId] || availablePeriods[INITIAL_PERIOD_ID];
     renderPeriodSelector();
     list.replaceChildren();
-    (d.activities.length ? d.activities.slice(0,80) : [{}]).forEach(addActivity);
+    (d.activities.length ? d.activities.slice(0,80) : [{}]).forEach(activity => addActivity(activity, false));
+    currentClassPage = 1;
+    expandedActivity = list.firstElementChild;
     return true;
   } catch (e) {
     console.warn(e);
@@ -595,6 +696,8 @@ function clearForm() {
   renderPeriodSelector();
   renderPeriodAvailability();
   list.replaceChildren();
+  currentClassPage = 1;
+  expandedActivity = null;
   addActivity();
   updateAll();
   goToPage(1, false);

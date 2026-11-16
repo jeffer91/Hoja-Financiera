@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0d2f56" />
   <meta name="description" content="Generador institucional de hojas financieras para clases de refuerzo por carrera." />
   <title>Hoja Financiera | ITSQMET</title>
-  <link rel="stylesheet" href="styles.css?v=20261116-temas-grabaciones-v1" />
+  <link rel="stylesheet" href="styles.css?v=20261116-clases-paginadas-v2" />
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -123,12 +123,24 @@
             <div class="section-title activities-title">
               <div class="title-with-step">
                 <span class="step">2</span>
-                <div><h2>Clases realizadas</h2><p>Registra el tema, las horas y la grabación de cada clase.</p></div>
+                <div><h2>Clases realizadas</h2><p>Completa cada clase y utiliza las páginas para organizar los registros.</p></div>
               </div>
               <button type="button" class="btn btn-secondary" id="addActivityBtn">+ Agregar clase</button>
             </div>
-            <p class="evidence-guidance">Las horas declaradas deben coincidir con la grabación. Comparte los enlaces HTTPS con permisos de visualización; si la evidencia no es accesible o no coincide con las horas, estas no serán validadas para el pago hasta corregir la observación.</p>
+            <p class="evidence-guidance">Comparte grabaciones HTTPS accesibles para revisión; la duración debe coincidir con las horas registradas.</p>
+            <div class="activity-overview" aria-live="polite">
+              <span id="activitySummaryCount">1 clase registrada</span>
+              <strong id="activitySummaryHours">2,00 horas</strong>
+            </div>
             <div id="activities" class="activities"></div>
+            <nav id="activityPagination" class="activity-pagination" aria-label="Paginación de clases">
+              <span id="activityRange" class="activity-range">Clases 1–1 de 1</span>
+              <div class="activity-page-actions">
+                <button type="button" class="btn btn-ghost" id="prevClassesPage">Anterior</button>
+                <span id="activityPageStatus" class="activity-page-status" aria-live="polite">Página 1 de 1</span>
+                <button type="button" class="btn btn-secondary" id="nextClassesPage">Siguiente</button>
+              </div>
+            </nav>
           </section>
 
           <div class="wizard-nav">
@@ -236,8 +248,14 @@
   <template id="activityTemplate">
     <article class="activity-card">
       <div class="activity-card-head">
-        <strong>Clase <span class="activity-number">1</span></strong>
-        <button type="button" class="icon-btn remove-activity" aria-label="Eliminar clase">×</button>
+        <div class="activity-heading">
+          <strong>Clase <span class="activity-number">1</span></strong>
+          <span class="activity-summary">Sin completar</span>
+        </div>
+        <div class="activity-head-actions">
+          <button type="button" class="activity-toggle" aria-expanded="true">Ocultar</button>
+          <button type="button" class="icon-btn remove-activity" aria-label="Eliminar clase" title="Eliminar clase">×</button>
+        </div>
       </div>
       <div class="activity-fields">
         <label>Fecha
@@ -247,10 +265,16 @@
           <input class="activity-hours" type="number" inputmode="decimal" min="0.01" max="24" step="0.01" value="2.00" required />
         </label>
         <label class="full-width">Tema de la clase
-          <input class="activity-topic" maxlength="300" placeholder="Ej. Revisión de metodología del artículo académico" required />
+          <select class="activity-topic" required>
+            <option value="">Selecciona el tipo de clase</option>
+            <option value="Clase de refuerzo por carrera">Clase de refuerzo por carrera</option>
+            <option value="Clase de metodología">Clase de metodología</option>
+            <option value="Clase de explicación del proceso">Clase de explicación del proceso</option>
+          </select>
         </label>
-        <label class="full-width">Observaciones <span class="optional">opcional</span>
-          <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Alguna observación adicional (si corresponde)"></textarea>
+        <label class="full-width">
+          <span class="field-label">Observaciones <span class="optional">opcional</span></span>
+          <textarea maxlength="1200" class="activity-notes" rows="2" placeholder="Añade alguna observación solo si es necesaria"></textarea>
         </label>
         <label class="full-width">Enlace de la grabación
           <input class="activity-evidence" maxlength="2048" type="url" inputmode="url" placeholder="https://..." required />
@@ -260,7 +284,7 @@
   </template>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="app.js?v=20261116-temas-grabaciones-v1"></script>
+  <script type="module" src="app.js?v=20261116-clases-paginadas-v2"></script>
 </body>
 </html>
 

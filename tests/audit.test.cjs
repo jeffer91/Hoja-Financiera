@@ -288,10 +288,10 @@ test('El logotipo institucional original existe y se usa en hoja y evidencias',(
 });
 
 test('El tema de clase es obligatorio y persiste junto al enlace en cada registro',()=>{
-  assert.match(form,/class="activity-topic"[^>]*required/);
+  assert.match(form,/<select class="activity-topic" required>/);
   assert.match(teacher,/card\.querySelector\('\.activity-topic'\)\.value/);
   assert.match(teacher,/topic: card\.querySelector\('\.activity-topic'\)\.value\.trim\(\)/);
-  assert.match(teacher,/const badTopic = !topic\.value\.trim\(\)/);
+  assert.match(teacher,/const badTopic = !CLASS_TYPES\.includes\(topic\.value\.trim\(\)\)/);
   assert.match(teacher,/addPair\(grid, 'Tema de la clase:', r\.topic/);
   assert.match(teacher,/addPair\(grid, 'Grabación:', r\.evidence, true\)/);
   assert.match(teacher,/enableLinks: true/);
@@ -313,4 +313,39 @@ test('El servidor conserva tema de clase y acepta registros antiguos',()=>{
   assert.equal(verify(base,period).actividades[0].topic,'Planteamiento del problema');
   assert.equal(verify({...base,actividades:[{...base.actividades[0],topic:'',notes:'Tema histórico'}]},period).actividades[0].topic,'Tema histórico');
   assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],topic:'',notes:''}]},period));
+});
+
+test('Selector limitado a los tres tipos de clase institucionales',()=>{
+  const options=[...form.matchAll(/<option value="(Clase de [^"]+)">/g)].map(m=>m[1]);
+  assert.deepEqual(options,[
+    'Clase de refuerzo por carrera',
+    'Clase de metodología',
+    'Clase de explicación del proceso'
+  ]);
+  assert.match(teacher,/row \? \(normalizeClassTopic\(row\.topic\) \|\| CONCEPT\) : ''/);
+  const normalize=pure(teacher,'normalizeClassTopic',['CLASS_TYPES'],[options]);
+  assert.equal(normalize('Clases de refuerzo por carrera'),options[0]);
+  assert.equal(normalize('ninguna'),'');
+});
+test('Cinco clases por página y validación de todas las tarjetas',()=>{
+  const count=pure(teacher,'classPageCount',['CLASSES_PER_PAGE'],[5]);
+  const page=pure(teacher,'classPageForIndex',['CLASSES_PER_PAGE'],[5]);
+  assert.equal(count(1),1); assert.equal(count(5),1); assert.equal(count(6),2);
+  assert.equal(count(23),5); assert.equal(count(80),16);
+  assert.equal(page(0),1); assert.equal(page(4),1); assert.equal(page(5),2); assert.equal(page(79),16);
+  assert.match(teacher,/\[\.\.\.list\.querySelectorAll\('\.activity-card'\)\]/);
+  assert.match(teacher,/card\.hidden = !isVisible/);
+  assert.match(teacher,/showFirstInvalidActivity\(\)/);
+  assert.match(form,/id="prevClassesPage"/);
+  assert.match(form,/id="nextClassesPage"/);
+  assert.match(form,/id="activityPageStatus"/);
+});
+test('Observaciones opcionales y migración de tema libre sin pérdida',()=>{
+  assert.match(form,/class="activity-notes"[^>]*><\/textarea>/);
+  assert.doesNotMatch(form,/class="activity-notes"[^>]*required/);
+  assert.match(teacher,/Tema anterior: /);
+  assert.match(teacher,/card\.querySelector\('\.activity-notes'\)\.value/);
+  assert.match(teacher,/activity => addActivity\(activity, false\)/);
+  assert.match(teacher,/currentClassPage = 1/);
+  assert.match(read('styles.css'),/\.activity-fields\[hidden\]/);
 });
