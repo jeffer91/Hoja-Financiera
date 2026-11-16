@@ -681,6 +681,13 @@ async function renderPdfPage(pdf, page, index, pageWidth, pageHeight) {
         wrapper.style.left = '0px';
         wrapper.style.top = '0px';
         wrapper.style.zIndex = '0';
+        // Colocar únicamente la hoja actual al principio del documento clonado:
+        // las siguientes hojas no dependen del alto del viewport ni del scroll.
+        const prepared = [...wrapper.querySelectorAll('#pdfContent > .pdf-page')]
+          .filter(node => !node.hidden);
+        prepared.forEach((node, pageIndex) => {
+          if (pageIndex !== index) node.style.display = 'none';
+        });
       }
     }
   });
