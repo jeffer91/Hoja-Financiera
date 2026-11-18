@@ -13,6 +13,10 @@ on:
       - ".github/workflows/browser-smoke.yml"
   workflow_dispatch:
 
+concurrency:
+  group: browser-smoke
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -33,7 +37,7 @@ jobs:
           cd /tmp/hf-playwright
           printf '{"name":"hf-smoke-tests","private":true}' > package.json
           npm install --no-audit --no-fund playwright@1.57.0
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Probar formulario y PDF multipágina
         run: NODE_PATH=/tmp/hf-playwright/node_modules node --test tests/browser-smoke.cjs
       - name: Comprobar estado público de Render y sus períodos
