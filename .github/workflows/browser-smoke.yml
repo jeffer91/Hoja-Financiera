@@ -1,0 +1,38 @@
+name: Pruebas reales de navegador
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "app.js"
+      - "api-config.js"
+      - "index.html"
+      - "styles.css"
+      - "administrador/**"
+      - "tests/browser-smoke.cjs"
+      - ".github/workflows/browser-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar Chromium para la prueba
+        run: |
+          mkdir -p /tmp/hf-playwright
+          cd /tmp/hf-playwright
+          printf '{"name":"hf-smoke-tests","private":true}' > package.json
+          npm install --no-audit --no-fund playwright@1.57.0
+          npx playwright install --with-deps chromium
+      - name: Probar formulario y PDF multipágina
+        run: NODE_PATH=/tmp/hf-playwright/node_modules node --test tests/browser-smoke.cjs
