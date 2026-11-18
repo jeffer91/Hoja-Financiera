@@ -23,6 +23,24 @@ function functionSource(code,name) {
 function pure(code,name,parameters=[],values=[]) {
   return new Function(...parameters,functionSource(code,name)+'\nreturn '+name)(...values);
 }
+test('El formulario usa el período activo sin sobrescribir el borrador',()=>{
+  const choose=pure(teacher,'preferredPeriodId',['INITIAL_PERIOD_ID'],['2026-02_2026-08']);
+  const periods={'2026-02_2026-08':{},'2026-05_2026-11':{},'2026-11_2027-05':{}};
+  assert.equal(choose(periods,null,'2026-11_2027-05'),'2026-11_2027-05');
+  assert.equal(choose(periods,'2026-05_2026-11','2026-11_2027-05'),'2026-05_2026-11');
+  assert.equal(choose(periods,null,'2028-01_2028-06'),'2026-02_2026-08');
+  assert.equal(choose(periods,'2026-11_2027-05',null),'2026-11_2027-05');
+  assert.match(teacher,/serverActivePeriodId = choices\[data\?\.activoId\]/);
+});
+test('La edición no vuelve a construir las páginas del PDF con cada pulsación',()=>{
+  assert.doesNotMatch(functionSource(teacher,'updateAll'),/renderPreview\(/);
+  assert.match(functionSource(teacher,'prepareFinancialPdf'),/renderPreview\(rows, hours\)/);
+});
+test('La API soporta el arranque lento de Render y comunica sus fallos',()=>{
+  assert.match(config,/AbortSignal\.timeout\(45000\)/);
+  assert.match(config,/TimeoutError/);
+  assert.match(admin,/AbortSignal\.timeout\(45000\)/);
+});
 test('Los módulos JavaScript tienen sintaxis válida',()=>{
   for(const file of ['app.js','api-config.js','administrador/dashboard.js','backend/server.mjs']) {
     const check=spawnSync(process.execPath,['--check',file],{cwd:root,encoding:'utf8'});
