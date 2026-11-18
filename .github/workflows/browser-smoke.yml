@@ -36,3 +36,27 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Probar formulario y PDF multipágina
         run: NODE_PATH=/tmp/hf-playwright/node_modules node --test tests/browser-smoke.cjs
+      - name: Comprobar estado público de Render y sus períodos
+        run: |
+          node --input-type=module <<'NODE'
+          const base='https://hoja-financiera-api.onrender.com';
+          for(const path of ['/api/health','/api/periods']) {
+            try {
+              const response=await fetch(base+path,{signal:AbortSignal.timeout(55000)});
+              const info=await response.json();
+              console.log(path+' HTTP '+response.status);
+              if(path==='/api/health') {
+                console.log('API lista='+Boolean(info.ok)+'; Base de datos='+Boolean(info.databaseReady)+'; Storage='+Boolean(info.storageReady));
+                if(!info.ok)console.log('::warning::El backend necesita revisión de Firebase o Storage.');
+              } else {
+                for(const id of ['2026-05_2026-11','2026-11_2027-05']) {
+                  const found=Boolean(info.periodos?.[id]);
+                  console.log('Período '+id+': '+(found?'disponible':'NO DISPONIBLE'));
+                  if(!found)console.log('::warning::Falta período '+id+' en la API desplegada.');
+                }
+              }
+            } catch(error) {
+              console.log('::warning::No fue posible comprobar '+path+': '+error.message);
+            }
+          }
+          NODE
