@@ -61,13 +61,11 @@ export function verifySheet(data,period) {
   if(!/^\d{10}$/.test(cedula)||docente.length<5||!titulo)throw Error('Verifica cédula, nombres y título superior');
   if(!validPeriod(period))throw Error('No existe período autorizado');
   if(!Array.isArray(data.actividades)||data.actividades.length<1||data.actividades.length>80)throw Error('Se requieren entre 1 y 80 clases');
-  const start=Date.UTC(period.anioInicio,period.mesInicio-1,1);
-  const end=Date.UTC(period.anioFin,period.mesFin,0);
   const actividades=data.actividades.map(a=>{
     if(!a||typeof a.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(a.date))throw Error('Fecha de clase inválida');
     const date=new Date(a.date+'T00:00:00Z');
-    if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==a.date||date.getTime()<start||date.getTime()>end)
-      throw Error('Una fecha está fuera del período');
+    if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==a.date)
+      throw Error('Fecha de clase inválida');
     const hours=Number(a.hours), notes=sanitizeString(a.notes,1200), topic=sanitizeString(a.topic,300), evidence=sanitizeString(a.evidence,2048);
     if(!Number.isFinite(hours)||hours<0.01||hours>24||Math.abs(hours*100-Math.round(hours*100))>1e-8||(!notes&&!topic))throw Error('Revisa horas y observaciones');
     let evidenceUrl;

@@ -567,23 +567,17 @@ function validateTeacherFields() {
   return valid;
 }
 
+// Las clases se pueden registrar en cualquier fecha real del calendario,
+// independientemente del período lectivo que figure en la hoja financiera.
 function validClassDate(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const [y,m,d] = date.split('-').map(Number);
   const actual = new Date(y, m-1, d);
-  if (actual.getFullYear() !== y || actual.getMonth() !== m-1 || actual.getDate() !== d) return false;
-  const period=activePeriod;
-  if (!period) return true;
-  const month = date.slice(0,7);
-  return month >= period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') &&
-    month <= period.anioFin + '-' + String(period.mesFin).padStart(2,'0');
+  return actual.getFullYear() === y && actual.getMonth() === m-1 && actual.getDate() === d;
 }
 
 function defaultClassDate() {
-  const now = today();
-  const period=activePeriod;
-  if (!period || validClassDate(now)) return now;
-  return period.anioInicio + '-' + String(period.mesInicio).padStart(2,'0') + '-01';
+  return today();
 }
 
 function validEvidenceUrl(value) {

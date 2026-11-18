@@ -107,7 +107,7 @@ test('No se consulta o escribe Firebase con secretos administrativos en el naveg
   assert.match(api,/APP_ORIGIN/);
   assert.match(api,/MAX_BODY/);
 });
-test('No se puede crear un documento fuera del período ni con horas inválidas',()=>{
+test('Las fechas pueden estar fuera del período, pero se rechazan horas y fechas inválidas',()=>{
   const clean=pure(api,'sanitizeString');
   const validPeriod=pure(api,'validPeriod');
   const fn=pure(api,'verifySheet',['sanitizeString','validPeriod'],[clean,validPeriod]);
@@ -123,7 +123,8 @@ test('No se puede crear un documento fuera del período ni con horas inválidas'
   assert.equal(fn({...sheet,actividades:[{...sheet.actividades[0],hours:1.35},{...sheet.actividades[0],hours:2.45}]},period).totales.horas,3.8);
   assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:1.235}]},period));
   assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:0}]},period));
-  assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],date:'2026-09-01'}]},period));
+  assert.equal(fn({...sheet,actividades:[{...sheet.actividades[0],date:'2026-09-01'}]},period).actividades[0].date,'2026-09-01');
+  assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],date:'2026-02-30'}]},period));
   assert.throws(()=>fn({...sheet,actividades:[{...sheet.actividades[0],hours:25}]},period));
 });
 test('Dos decimales en horas y concepto fijo conservado solo en el documento',()=>{
@@ -203,14 +204,19 @@ test('El servidor acepta un período disponible pero rechaza uno inventado por e
   assert.equal(selected({periodos:{[custom.id]:custom}},custom.id).id,custom.id);
   assert.equal(selected({periodos:{[custom.id]:custom}},p.id).id,p.id);
 });
-test('Las fechas de clase se validan contra el período Febrero–Agosto elegido',()=>{
+test('Las fechas de clase admiten septiembre y otros meses aunque el período sea febrero–agosto',()=>{
   const clean=pure(api,'sanitizeString'),periodCheck=pure(api,'validPeriod');
   const verify=pure(api,'verifySheet',['sanitizeString','validPeriod'],[clean,periodCheck]);
   const period={id:'2026-02_2026-08',mesInicio:2,anioInicio:2026,mesFin:8,anioFin:2026};
   const base={cedula:'1718435009',docente:'Stalin Fabricio Llumiquinga Oña',tituloSuperior:'Ingeniero Automotriz',
     actividades:[{date:'2026-08-26',hours:2,notes:'Tutoría presencial',evidence:'https://example.org/video'}]};
   assert.equal(verify(base,period).totales.horas,2);
-  assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],date:'2026-10-22'}]},period));
+  for (const date of ['2026-09-09','2026-09-10','2026-10-22','2027-01-15']) {
+    assert.equal(verify({...base,actividades:[{...base.actividades[0],date}]},period).actividades[0].date,date);
+  }
+  for (const date of ['2026-02-30','2026-13-10','2026-09-31','fecha-invalida']) {
+    assert.throws(()=>verify({...base,actividades:[{...base.actividades[0],date}]},period));
+  }
 });
 
 
@@ -221,9 +227,13 @@ test('Enlaces seguros HTTP y HTTPS, fechas reales y almacenamiento bloqueado',()
   assert.equal(valid('  '),false);
   assert.equal(valid('http://example.org/video'),false);
   assert.equal(valid('javascript:alert(1)'),false);
-  const date=pure(teacher,'validClassDate',['activePeriod'],[null]);
+  const date=pure(teacher,'validClassDate');
   assert.equal(date('2026-02-30'),false);
+  assert.equal(date('2026-09-31'),false);
   assert.equal(date('2026-02-28'),true);
+  assert.equal(date('2026-09-09'),true);
+  assert.equal(date('2026-09-10'),true);
+  assert.equal(date('2027-01-15'),true);
   const cedula={value:'1718-435 009'};
   const sanitize=pure(teacher,'sanitizeCedula',['$'],[()=>cedula]);
   sanitize();
