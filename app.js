@@ -26,7 +26,8 @@ let currentClassPage = 1;
 let expandedActivity = null;
 const validatedPages = new Set();
 let availablePeriods = {...BUILTIN_PERIODS};
-let desiredPeriodId = INITIAL_PERIOD_ID;
+let desiredPeriodId = null;
+let serverActivePeriodId = null;
 let activePeriod = {...INITIAL_PERIOD};
 let periodState = 'loading';
 let exporting = false;
@@ -57,6 +58,12 @@ function renderPeriodSelector() {
   control.value=selected.id;
 }
 
+function preferredPeriodId(choices, requestedId, publishedActiveId) {
+  if (requestedId && choices[requestedId]) return requestedId;
+  if (publishedActiveId && choices[publishedActiveId]) return publishedActiveId;
+  return INITIAL_PERIOD_ID;
+}
+
 function setActivePeriod(data) {
   const choices = {...BUILTIN_PERIODS};
   for(const [id,entry] of Object.entries(data?.periodos || {})) {
@@ -65,7 +72,8 @@ function setActivePeriod(data) {
     }
   }
   availablePeriods=choices;
-  activePeriod=availablePeriods[desiredPeriodId]||availablePeriods[INITIAL_PERIOD_ID];
+  serverActivePeriodId = choices[data?.activoId] ? data.activoId : null;
+  activePeriod=availablePeriods[preferredPeriodId(choices, desiredPeriodId, serverActivePeriodId)];
   periodState='ready';
   renderPeriodSelector();
   renderPeriodAvailability();
@@ -265,7 +273,7 @@ function updateAll() {
   $('classCount').textContent = rows.length;
   $('hoursTotal').textContent = nfmt(hours);
   updateWizardSummary();
-  renderPreview(rows, hours);
+  // Evitar reconstruir el PDF oculto cada vez que se escribe.
   // Las marcas rojas se actualizan en tiempo real tras intentar avanzar.
   if (validatedPages.has(1)) validateTeacherFields();
   if (validatedPages.has(2)) validateActivityCards();
@@ -806,8 +814,8 @@ function restoreDraft() {
     $('teacherCareer').value = isListed ? career : (career ? '__other__' : '');
     $('teacherCareerOther').value = isListed ? '' : career;
     toggleCareerOther();
-    desiredPeriodId = typeof d.periodId==='string' ? d.periodId : INITIAL_PERIOD_ID;
-    activePeriod = availablePeriods[desiredPeriodId] || availablePeriods[INITIAL_PERIOD_ID];
+    desiredPeriodId = typeof d.periodId==='string' ? d.periodId : null;
+    activePeriod = availablePeriods[preferredPeriodId(availablePeriods, desiredPeriodId, serverActivePeriodId)];
     renderPeriodSelector();
     list.replaceChildren();
     (d.activities.length ? d.activities.slice(0,80) : [{}]).forEach(activity => addActivity(activity, false));
@@ -828,8 +836,8 @@ function clearForm() {
   form.reset();
   $('legacyNameNotice').hidden = true;
   toggleCareerOther();
-  desiredPeriodId = INITIAL_PERIOD_ID;
-  activePeriod = availablePeriods[INITIAL_PERIOD_ID];
+  desiredPeriodId = null;
+  activePeriod = availablePeriods[preferredPeriodId(availablePeriods, null, serverActivePeriodId)];
   renderPeriodSelector();
   renderPeriodAvailability();
   list.replaceChildren();
