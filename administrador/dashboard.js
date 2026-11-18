@@ -135,13 +135,13 @@ function showDetail(id) {
 async function viewPDF(id,version) {
   try {
     const url=API_BASE+'/api/admin/pdf?id='+encodeURIComponent(id)+'&version='+encodeURIComponent(version);
-    const response=await fetch(url,{headers:{'X-Admin-Capability':state.token},cache:'no-store'});
+    const response=await fetch(url,{headers:{'X-Admin-Capability':state.token},cache:'no-store',signal:AbortSignal.timeout(45000)});
     if(!response.ok)throw Error('No se pudo descargar el PDF: '+response.status);
     const file=await response.blob();
     if(file.type&&!file.type.includes('pdf'))throw Error('Respuesta no es PDF');
     const objectUrl=URL.createObjectURL(file);
     const a=document.createElement('a');a.href=objectUrl;
-    a.download='Hoja_financiera_'+id+'_v'+version+'.pdf';a.click();
+    a.download='Hoja_financiera_'+id+'_v'+version+'.pdf';document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(objectUrl),30000);
   } catch(e) {notice(e.message,'error');}
 }
