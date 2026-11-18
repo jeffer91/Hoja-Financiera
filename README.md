@@ -14,6 +14,8 @@ Los borradores se guardan automáticamente en este navegador. No se sincronizan 
 
 Las fechas de las clases se pueden escoger libremente, incluso antes o después del período lectivo mostrado en el encabezado del PDF. Únicamente se rechazan fechas inexistentes o mal escritas; el período lectivo sigue siendo un dato del documento.
 
+El formulario propone el período activo que devuelve Administración cuando no existe una selección anterior. Un borrador existente conserva el período elegido por su docente. La preparación de las hojas y anexos PDF se realiza únicamente al imprimir o descargar, no en cada pulsación, para evitar bloqueos cuando se registran muchas clases.
+
 El formulario no consulta docentes por cédula ni autocompleta sus datos. Todos los campos personales son editables; un borrador guardado puede recuperarse en el mismo navegador. El catálogo de períodos se consulta a la API, pero incluye permanentemente tres opciones locales: Febrero 2026 - Agosto 2026, Mayo 2026 - Noviembre 2026 y Noviembre 2026 - Mayo 2027. Se muestran también cuando no funciona la API. El período elegido aparece en la hoja financiera y los borradores lo recuerdan. No hay dependencia de Firebase Storage para generar documentos.
 
 ## Historial administrativo
@@ -21,6 +23,12 @@ El formulario no consulta docentes por cédula ni autocompleta sus datos. Todos 
 [Administrador](https://jeffer91.github.io/Hoja-Financiera/administrador/) (también accesible desde el encabezado del formulario). El enlace público muestra información general; las operaciones privadas requieren el enlace administrativo con su clave configurada de manera segura.
 
 Se conserva para consultar documentos recibidos anteriormente y gestionar períodos, incluidos los tres integrados desde el código. Para que la API permita activarlos desde Administración, Render debe desplegar esta versión del backend. Las estadísticas corresponden a esas entregas históricas, no a nuevas descargas. El formulario actual no permite enviar ni reenviar documentos. Los endpoints y archivos existentes se conservan para no eliminar información histórica. La configuración privada se documenta en FIREBASE-ADMIN.md.
+
+## Auditoría real de navegador
+
+GitHub Actions ejecuta la prueba `.github/workflows/browser-smoke.yml` con Chromium en Ubuntu 24.04, sin usar datos reales ni credenciales administrativas. El escenario simula el catálogo de períodos, verifica fechas libres, borradores, los límites de clases, la creación de PDF de una, 24 y 80 clases, la paginación, la vista móvil y que el administrador público no muestre los documentos privados.
+
+Las pruebas en navegador no sustituyen la comprobación de la API de Render y Firebase del entorno real: la conexión, el historial y las operaciones con documentos firmados requieren las credenciales configuradas en el servicio privado.
 
 ## Validación
 
