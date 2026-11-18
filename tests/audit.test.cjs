@@ -187,6 +187,14 @@ test('Comprobación de páginas está condicionada a las pruebas automáticas',(
 test('El docente puede seleccionar Febrero 2026 - Agosto 2026, incluso sin período activo',()=>{
   assert.match(form,/id="periodSelect"/);
   assert.match(form,/value="2026-02_2026-08"/);
+  for (const [id,label] of [
+    ['2026-05_2026-11','Mayo 2026 - Noviembre 2026'],
+    ['2026-11_2027-05','Noviembre 2026 - Mayo 2027']
+  ]) {
+    assert.ok(form.includes(`value="${id}">${label}`),'Falta opción inicial: '+id);
+    assert.ok(teacher.includes(`'${id}': Object.freeze`),'Falta período local: '+id);
+    assert.ok(api.includes(`'${id}': Object.freeze`),'Falta período backend: '+id);
+  }
   assert.match(teacher,/INITIAL_PERIOD_ID = '2026-02_2026-08'/);
 
   assert.match(teacher,/periodId:activePeriod\?\.id/);
@@ -196,13 +204,22 @@ test('El docente puede seleccionar Febrero 2026 - Agosto 2026, incluso sin perí
 test('El servidor acepta un período disponible pero rechaza uno inventado por el docente',()=>{
   const cleanPeriod=pure(api,'validPeriod');
   const p={id:'2026-02_2026-08',mesInicio:2,anioInicio:2026,mesFin:8,anioFin:2026,etiqueta:'Febrero 2026 - Agosto 2026'};
-  const available=pure(api,'availablePeriods',['INITIAL_PERIOD_ID','INITIAL_PERIOD','validPeriod'],[p.id,p,cleanPeriod]);
+  const builtins={
+    [p.id]:p,
+    '2026-05_2026-11':{id:'2026-05_2026-11',mesInicio:5,anioInicio:2026,mesFin:11,anioFin:2026,etiqueta:'Mayo 2026 - Noviembre 2026'},
+    '2026-11_2027-05':{id:'2026-11_2027-05',mesInicio:11,anioInicio:2026,mesFin:5,anioFin:2027,etiqueta:'Noviembre 2026 - Mayo 2027'}
+  };
+  const available=pure(api,'availablePeriods',['BUILTIN_PERIODS','validPeriod'],[builtins,cleanPeriod]);
   const selected=pure(api,'selectedPeriod',['availablePeriods'],[available]);
   assert.equal(selected(null,p.id).etiqueta,p.etiqueta);
+  assert.equal(selected(null,'2026-05_2026-11').etiqueta,'Mayo 2026 - Noviembre 2026');
+  assert.equal(selected(null,'2026-11_2027-05').etiqueta,'Noviembre 2026 - Mayo 2027');
   assert.equal(selected(null,'2027-01_2027-06'),null);
   const custom={id:'2026-10_2027-03',mesInicio:10,anioInicio:2026,mesFin:3,anioFin:2027,etiqueta:'Octubre 2026 - Marzo 2027'};
   assert.equal(selected({periodos:{[custom.id]:custom}},custom.id).id,custom.id);
   assert.equal(selected({periodos:{[custom.id]:custom}},p.id).id,p.id);
+  assert.match(api,/availablePeriods\(state\)\[p\.id\]/);
+  assert.doesNotMatch(admin,/btn\.disabled=true/);
 });
 test('Las fechas de clase admiten septiembre y otros meses aunque el período sea febrero–agosto',()=>{
   const clean=pure(api,'sanitizeString'),periodCheck=pure(api,'validPeriod');

@@ -17,6 +17,17 @@ const INITIAL_PERIOD = Object.freeze({
   mesFin: 8, anioFin: 2026,
   etiqueta: 'Febrero 2026 - Agosto 2026'
 });
+const BUILTIN_PERIODS = Object.freeze({
+  [INITIAL_PERIOD_ID]: INITIAL_PERIOD,
+  '2026-05_2026-11': Object.freeze({
+    id:'2026-05_2026-11', mesInicio:5, anioInicio:2026, mesFin:11, anioFin:2026,
+    etiqueta:'Mayo 2026 - Noviembre 2026'
+  }),
+  '2026-11_2027-05': Object.freeze({
+    id:'2026-11_2027-05', mesInicio:11, anioInicio:2026, mesFin:5, anioFin:2027,
+    etiqueta:'Noviembre 2026 - Mayo 2027'
+  })
+});
 const rate=new Map();
 let db, bucket, initializationError;
 try {
@@ -117,7 +128,7 @@ async function storePdf(id,version,bytes) {
   return path;
 }
 function availablePeriods(source) {
-  const available = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
+  const available = {...BUILTIN_PERIODS};
   for (const [id,period] of Object.entries(source?.periodos || {})) {
     if (/^\d{4}-\d{2}_\d{4}-\d{2}$/.test(id) && validPeriod({...period,id})
       && Number.isInteger(period.mesInicio) && Number.isInteger(period.mesFin)
@@ -208,7 +219,7 @@ async function changeAdminPeriod(req,res) {
         mesFin:p.mesFin,anioFin:p.anioFin,etiqueta:months[p.mesInicio-1]+' '+p.anioInicio+' - '+months[p.mesFin-1]+' '+p.anioFin,creadoEn:Date.now()};
       state.activoId=id;
     } else if(operation==='activar') {
-      if(typeof p.id!=='string'||!state.periodos[p.id])return;
+      if(typeof p.id!=='string'||!availablePeriods(state)[p.id])return;
       state.activoId=p.id;
     } else {
       if(typeof p.id!=='string'||state.activoId!==p.id)return;

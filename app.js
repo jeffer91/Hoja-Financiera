@@ -11,6 +11,11 @@ const EVIDENCE_PER_PAGE = 4;
 const DRAFT = 'hoja-financiera-draft-v1';
 const INITIAL_PERIOD_ID = '2026-02_2026-08';
 const INITIAL_PERIOD = Object.freeze({id: INITIAL_PERIOD_ID, mesInicio:2, anioInicio:2026, mesFin:8, anioFin:2026, etiqueta:'Febrero 2026 - Agosto 2026'});
+const BUILTIN_PERIODS = Object.freeze({
+  [INITIAL_PERIOD_ID]: INITIAL_PERIOD,
+  '2026-05_2026-11': Object.freeze({id:'2026-05_2026-11', mesInicio:5, anioInicio:2026, mesFin:11, anioFin:2026, etiqueta:'Mayo 2026 - Noviembre 2026'}),
+  '2026-11_2027-05': Object.freeze({id:'2026-11_2027-05', mesInicio:11, anioInicio:2026, mesFin:5, anioFin:2027, etiqueta:'Noviembre 2026 - Mayo 2027'})
+});
 const $ = id => document.getElementById(id);
 const form = $('financeForm');
 const list = $('activities');
@@ -20,7 +25,7 @@ let currentWizardPage = 1;
 let currentClassPage = 1;
 let expandedActivity = null;
 const validatedPages = new Set();
-let availablePeriods = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
+let availablePeriods = {...BUILTIN_PERIODS};
 let desiredPeriodId = INITIAL_PERIOD_ID;
 let activePeriod = {...INITIAL_PERIOD};
 let periodState = 'loading';
@@ -53,7 +58,7 @@ function renderPeriodSelector() {
 }
 
 function setActivePeriod(data) {
-  const choices = {[INITIAL_PERIOD_ID]: {...INITIAL_PERIOD}};
+  const choices = {...BUILTIN_PERIODS};
   for(const [id,entry] of Object.entries(data?.periodos || {})) {
     if(validPeriod(entry) && /^\d{4}-\d{2}_\d{4}-\d{2}$/.test(id)) {
       choices[id]={...entry,id,etiqueta:entry.etiqueta || (MONTHS[entry.mesInicio-1]+' '+entry.anioInicio+' - '+MONTHS[entry.mesFin-1]+' '+entry.anioFin)};
@@ -79,7 +84,7 @@ function listenActivePeriod() {
   renderPeriodSelector();
   renderPeriodAvailability();
   void apiRequest('/api/periods').then(data=>setActivePeriod(data)).catch(error=>{
-    console.warn('No se pudo consultar el catálogo de períodos; se mantiene el período inicial.',error);
+    console.warn('No se pudo consultar el catálogo de períodos; se mantienen los períodos integrados.',error);
     periodState='error';
     renderPeriodAvailability();
   });
