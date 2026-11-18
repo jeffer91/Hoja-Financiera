@@ -63,6 +63,11 @@ test('Formulario: período activo, fechas libres, borrador, 24 clases y PDF comp
     const firstPath=path.join(folder,'one.pdf');
     await firstFile.saveAs(firstPath);
     assert.equal(fs.readFileSync(firstPath).subarray(0,5).toString(),'%PDF-');
+    const countPages=file=>{
+      const bytes=fs.readFileSync(file).toString('latin1');
+      return [...bytes.matchAll(/\/Type\s*\/Page\b/g)].length;
+    };
+    assert.equal(countPages(firstPath),2,'El PDF de una clase debe tener hoja y anexo');
     assert.equal(await page.locator('#pdfContent .official-class-row').count(),1);
     await page.reload({waitUntil:'load'});
     await page.waitForFunction(()=>document.getElementById('periodSelect')?.value==='2026-11_2027-05');
@@ -92,10 +97,49 @@ test('Formulario: período activo, fechas libres, borrador, 24 clases y PDF comp
     const manyPath=path.join(folder,'twenty-four.pdf');
     await manyFile.saveAs(manyPath);
     assert.equal(fs.readFileSync(manyPath).subarray(0,5).toString(),'%PDF-');
+    assert.equal(countPages(manyPath),8,'El PDF de 24 clases debe tener 8 páginas');
     assert.equal(await page.locator('#pdfContent .official-class-row').count(),24);
     assert.equal(await page.locator('#pdfContent .financial-page').count(),2);
     assert.equal(await page.locator('#pdfContent .evidence-page').count(),6);
     assert.equal(await page.locator('#pdfContent .evidence-item').count(),24);
+    await page.locator('[data-prev-page="2"]').click();
+    await page.evaluate(()=>{
+      const add=document.getElementById('addActivityBtn');
+      for(let i=25;i<=80;i++){
+        add.click();
+        const cards=document.querySelectorAll('#activities .activity-card');
+        const card=cards[cards.length-1];
+        card.querySelector('.activity-date').value='2026-09-10';
+        card.querySelector('.activity-topic').value='Clase de metodología';
+        card.querySelector('.activity-evidence').value='https://example.org/grabacion-'+i;
+      }
+      document.querySelector('#activities .activity-card:last-child .activity-evidence')
+        .dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    assert.equal(await page.locator('.activity-card').count(),80);
+    assert.equal(await page.locator('#addActivityBtn').isDisabled(),true);
+    await page.locator('[data-next-page="3"]').click();
+    assert.equal(await page.locator('#wizardPageLabel').innerText(),'Paso 3 de 3');
+    const maxDownload=page.waitForEvent('download',{timeout:120000});
+    await page.locator('#pdfBtn').click();
+    const maxFile=await maxDownload;
+    const maxPath=path.join(folder,'eighty.pdf');
+    await maxFile.saveAs(maxPath);
+    assert.equal(countPages(maxPath),24,'El PDF de 80 clases debe tener 24 páginas');
+    assert.equal(await page.locator('#pdfContent .official-class-row').count(),80);
+    assert.equal(await page.locator('#pdfContent .evidence-item').count(),80);
+    assert.equal(await page.locator('#pdfContent .financial-page').count(),4);
+    assert.equal(await page.locator('#pdfContent .evidence-page').count(),20);
+    const mobile=await context.newPage();
+    await mobile.setViewportSize({width:390,height:844});
+    await mobile.route('https://hoja-financiera-api.onrender.com/**',route=>
+      route.fulfill({status:200,contentType:'application/json',
+        body:JSON.stringify({activoId:'2026-11_2027-05',periodos:{}})}));
+    await mobile.goto(base+'/',{waitUntil:'load'});
+    await mobile.waitForFunction(()=>document.getElementById('periodSelect')?.value==='2026-11_2027-05');
+    assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2),true,
+      'El formulario móvil no debe tener desbordamiento horizontal');
+    await mobile.close();
     await page.goto(base+'/administrador/',{waitUntil:'load'});
     assert.equal(await page.locator('#privatePanel').isHidden(),true);
     assert.equal(await page.locator('#privateHint').isVisible(),true);
